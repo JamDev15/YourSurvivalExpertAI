@@ -239,7 +239,7 @@ export default function Home() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/chat', {
+      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updatedMessages, profile }),
@@ -278,7 +278,7 @@ export default function Home() {
     setError('')
     setEmailStatus('sending')
     try {
-      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/guide', {
+      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/api/guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, profile }),
