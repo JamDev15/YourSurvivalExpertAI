@@ -4,7 +4,7 @@ import useSeo from '../hooks/useSeo.js'
 import '../App.css'
 
 const starterMessage =
-  "Hi, I'm your calm survival expert. Tell me what you're preparing for, and we'll build a practical plan together."
+   "Let’s build your personalized survival plan. First, what situation are you preparing for — hurricane, power outage, wildfire, or something else?"
 
 const emptyProfile = {
   preparingFor: '',
@@ -13,9 +13,11 @@ const emptyProfile = {
 }
 
 const starterPrompts = [
-  'Power outage planning for a small apartment',
-  'Hurricane basics for a family of four',
-  'Water storage checklist for beginners',
+  'Power outage',
+  'Hurricane preparation',
+  'Water storage',
+  'Wildfire',
+  'General preparedness'
 ]
 
 const geoRegions = [
@@ -62,6 +64,7 @@ const geoRegions = [
 ]
 
 export default function Home() {
+    // ...existing code...
   const [selectedRegion, setSelectedRegion] = useState(geoRegions[0])
   const [isChatActive, setIsChatActive] = useState(false)
   const [messages, setMessages] = useState([])
@@ -209,15 +212,20 @@ export default function Home() {
     }, 0)
   }, [])
 
-  const activateChat = () => {
-    setIsChatActive(true)
-    if (messages.length === 0) {
-      setMessages([{ role: 'assistant', content: starterMessage }])
-    }
-    setTimeout(() => {
-      chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }, 0)
+const activateChat = () => {
+  setIsChatActive(true)
+
+  if (messages.length === 0) {
+    setMessages([{ role: 'assistant', content: starterMessage }])
   }
+
+  setTimeout(() => {
+    chatSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+  }, 100)
+}
 
   const handlePromptClick = (prompt) => {
     if (!isChatActive) {
@@ -239,7 +247,7 @@ export default function Home() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/api/chat', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updatedMessages, profile }),
@@ -278,7 +286,7 @@ export default function Home() {
     setError('')
     setEmailStatus('sending')
     try {
-      const response = await fetch('https://yoursurvivalexpertai-1.onrender.com/api/guide', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/guide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, profile }),
@@ -288,7 +296,7 @@ export default function Home() {
         throw new Error(data?.error || 'Unable to deliver the guide.')
       }
 
-      setEmailStatus('sent')
+      setEmailStatus('sent');
       setMessages((current) => [
         ...current,
         {
@@ -303,63 +311,261 @@ export default function Home() {
     }
   }
 
+  // FAQ toggle state
+  const [faqOpen, setFaqOpen] = useState([false, false, false]);
+  const faqData = [
+    {
+      question: 'What do I receive after chatting?',
+      answer: `A personalized PDF survival guide and emergency checklist tailored to ${selectedRegion.name} and your household.`,
+    },
+    {
+      question: 'Why do you need my email address?',
+      answer: 'We use your email only to deliver the guide you requested.',
+    },
+    {
+      question: `Is the guidance local to ${selectedRegion.name}?`,
+      answer: `Yes. We tailor the plan to the regional risks common in ${selectedRegion.name}.`,
+    },
+  ];
+
+  const handleFaqToggle = idx => {
+    setFaqOpen(open => open.map((v, i) => i === idx ? !v : v));
+  };
   return (
     <SiteLayout ctaLabel="Start" onCta={activateChat}>
       <main>
-        <section className="hero" data-animate>
-          <div className="hero-copy">
-            <p className="kicker">Calm guidance when it matters most</p>
-            <h1 className="text-gradient">Your Personal AI Survival Expert Custom Emergency Plans Built for You</h1>
-            <p className="lede">
-              Your Survival Expert helps you plan for outages, storms, and disruptions. Start a
-              quick conversation and receive a tailored PDF guide that fits your household and
-              region.
+       <main>
+  <section
+    className="hero"
+    style={{
+      backgroundImage: "url(/sunrays-bg.jpg)",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      textAlign: "center",
+      position: "relative",
+      padding: "40px 20px",
+    }}
+  >
+
+    {/* DARK OVERLAY */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background:
+          "linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.85))",
+      }}
+    />
+
+    <div
+      className="hero-copy"
+      style={{
+        position: "relative",
+        zIndex: 2,
+        maxWidth: "850px",
+        color: "#fff",
+      }}
+    >
+
+      {/* BADGE */}
+      <div
+        style={{
+          display: "inline-block",
+          padding: "8px 18px",
+          borderRadius: "20px",
+          background: "rgba(0,255,157,0.1)",
+          border: "1px solid rgba(0,255,157,0.35)",
+          color: "#00ff9d",
+          fontSize: "0.9rem",
+          marginBottom: "20px",
+        }}
+      >
+        AI-Powered Preparedness
+      </div>
+
+      {/* HEADLINE */}
+      <h1
+        style={{
+          fontSize: "3rem",
+          fontWeight: "700",
+          marginBottom: "16px",
+          lineHeight: "1.2",
+        }}
+      >
+        Your Personalized <br />
+        <span
+          style={{
+            background:
+              "linear-gradient(90deg,#6DBE45,#E3B341)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Survival Guide
+        </span>
+      </h1>
+
+      {/* SUBTEXT */}
+      <p
+        style={{
+          fontSize: "1.2rem",
+          color: "#d1d5db",
+          maxWidth: "640px",
+          margin: "0 auto 30px",
+        }}
+      >
+        Answer a few questions and our AI will create a custom survival guide
+        tailored to your situation, location, and experience level.
+      </p>
+
+      {/* CTA BUTTON */}
+      <button
+        style={{
+          fontSize: "1.15rem",
+          padding: "16px 36px",
+          borderRadius: "10px",
+          color: "#fff",
+          background: "#2E7D5B",
+          border: "none",
+          cursor: "pointer",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "translateY(-2px)";
+          e.currentTarget.style.boxShadow =
+            "0 10px 22px rgba(0,0,0,0.45)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "translateY(0)";
+          e.currentTarget.style.boxShadow =
+            "0 6px 18px rgba(0,0,0,0.4)";
+        }}
+        onClick={() => {
+          activateChat();
+          chatSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }}
+      >
+        Get Your Free Guide →
+      </button>
+
+      {/* SMALL TEXT */}
+      <p
+        style={{
+          marginTop: "14px",
+          fontSize: "0.9rem",
+          color: "#9ca3af",
+        }}
+      >
+        Free • No account required • Delivered to your inbox
+      </p>
+
+    </div>
+  </section>
+</main>
+
+
+        {/* WHO IS THIS FOR SECTION */}
+        <section
+          className="who-section"
+          style={{
+            background: 'rgb(0, 0, 0)',
+            padding: '64px 0 40px',
+            color: '#fff',
+            borderBottom: '1px solid #000000',
+          }}
+        >
+          <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 24px' }}>
+            <h2 style={{ fontSize: '2.3rem', fontWeight: 700, marginBottom: '12px', color: '#fff' }}>
+              Who Is This For?
+            </h2>
+            <p style={{ color: '#bfc9d4', fontSize: '1.15rem', marginBottom: '38px', maxWidth: '700px' }}>
+              Our AI survival expert helps anyone who wants practical, personalized emergency preparedness advice — no experience required.
             </p>
-            <div className="pill-row">
-              <span className="pill">Protect your people</span>
-              <span className="pill">Equip your essentials</span>
-              <span className="pill">Empower your next step</span>
-            </div>
-            <div className="hero-grid">
-              <div className="hero-card">
-                <h2>Who this is for</h2>
-                <ul>
-                  <li>Individuals, couples, and families who want a clear plan.</li>
-                  <li>First-time preppers who need a calm, trusted starting point.</li>
-                  <li>Busy households looking for realistic, low-stress checklists.</li>
-                </ul>
+            <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {/* Card 1 */}
+              <div style={{
+                background: '#151b2c',
+                borderRadius: '16px',
+                border: '1px solid #23283a',
+                padding: '36px 28px 28px',
+                minWidth: '290px',
+                maxWidth: '340px',
+                flex: '1 1 290px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                marginBottom: '18px',
+              }}>
+                <div style={{ marginBottom: '18px' }}>
+                  {/* Family Icon */}
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#19c37d" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: '1.18rem', fontWeight: 600, marginBottom: '8px', color: '#fff' }}>Families Wanting Peace of Mind</h3>
+                <p style={{ color: '#bfc9d4', fontSize: '1rem', lineHeight: 1.6 }}>
+                  Parents who want to protect their loved ones but don't know where to start with emergency preparedness.
+                </p>
               </div>
-              <div className="hero-card">
-                <h2>What it helps with</h2>
-                <ul>
-                  <li>Storms, power outages, water shortages, and supply gaps.</li>
-                  <li>Prioritizing essentials without fear-based messaging.</li>
-                  <li>Building a step-by-step plan you can act on today.</li>
-                </ul>
+              {/* Card 2 */}
+              <div style={{
+                background: '#151b2c',
+                borderRadius: '16px',
+                border: '1px solid #23283a',
+                padding: '36px 28px 28px',
+                minWidth: '290px',
+                maxWidth: '340px',
+                flex: '1 1 290px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                marginBottom: '18px',
+              }}>
+                <div style={{ marginBottom: '18px' }}>
+                  {/* Home Icon */}
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#19c37d" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7" />
+                    <path d="M9 22V12h6v10" />
+                    <path d="M21 22H3" />
+                  </svg>
+                </div>
+                <h3 style={{ fontSize: '1.18rem', fontWeight: 600, marginBottom: '8px', color: '#fff' }}>First-Time Preppers</h3>
+                <p style={{ color: '#bfc9d4', fontSize: '1rem', lineHeight: 1.6 }}>
+                  People new to survival planning who need clear, beginner-friendly guidance without the overwhelming jargon.
+                </p>
               </div>
-            </div>
-          </div>
-          <div className="hero-aside">
-            <div className="highlight">
-              <div className="highlight-badge">Preparedness snapshot</div>
-              <h3>What you will receive</h3>
-              <p>
-                A personalized survival checklist with practical steps, supply targets, and tailored
-                advice you can reference anytime.
-              </p>
-              <div className="stat-row">
-                <div>
-                  <span className="stat">5-7 min</span>
-                  <span className="stat-label">chat time</span>
+              {/* Card 3 */}
+              <div style={{
+                background: '#151b2c',
+                borderRadius: '16px',
+                border: '1px solid #23283a',
+                padding: '36px 28px 28px',
+                minWidth: '290px',
+                maxWidth: '340px',
+                flex: '1 1 290px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                marginBottom: '18px',
+              }}>
+                <div style={{ marginBottom: '18px' }}>
+                  {/* Alert Icon */}
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#19c37d" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                    <path d="M21 18a2 2 0 0 0 1-1.73V7.73A2 2 0 0 0 21 6.27l-8-4.62a2 2 0 0 0-2 0l-8 4.62A2 2 0 0 0 1 7.73v8.54A2 2 0 0 0 2 18l8 4.62a2 2 0 0 0 2 0l8-4.62z" />
+                  </svg>
                 </div>
-                <div>
-                  <span className="stat">PDF</span>
-                  <span className="stat-label">delivered to email</span>
-                </div>
-                <div>
-                  <span className="stat">0</span>
-                  <span className="stat-label">spam promises</span>
-                </div>
+                <h3 style={{ fontSize: '1.18rem', fontWeight: 600, marginBottom: '8px', color: '#fff' }}>Anyone Concerned About Emergencies</h3>
+                <p style={{ color: '#bfc9d4', fontSize: '1rem', lineHeight: 1.6 }}>
+                  Whether it's hurricanes, earthquakes, blackouts, or economic uncertainty — get a plan that fits your reality.
+                </p>
               </div>
             </div>
           </div>
@@ -368,36 +574,105 @@ export default function Home() {
         <div className="divider" aria-hidden="true" />
 
         <section id="chat" ref={chatSectionRef} className="chat-section" data-animate>
-          <div className="chat-header">
-            <div className="chat-intro">
-              <p className="kicker">Talk with the Survival Expert</p>
-              <h2>Start a calm conversation when you are ready.</h2>
-              <p className="lede">
-                The assistant listens, asks follow-up questions, and builds a clear plan tailored to
-                your situation. You stay in control of the pace.
-              </p>
-              <div className="prompt-row">
-                {starterPrompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    className="prompt-pill"
-                    type="button"
-                    onClick={() => handlePromptClick(prompt)}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-              {!isChatActive && (
-                <div className="chat-intro-cta">
-                  <button className="primary" type="button" onClick={activateChat}>
-                    Start the conversation
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="chat-header hero-chat">
 
+            {!isChatActive && (
+              <>
+              <h2 className="hero-title">
+                  Talk with Your Survival Expert
+                </h2>
+
+                <p className="hero-subtitle">
+                  Answer a few quick questions and get a personalized survival guide delivered to your inbox — free.
+                </p>
+              </>
+            )}
+
+       {!isChatActive && (
+  <div className="start-card">
+
+    <div
+      className="flex items-center justify-center mx-auto mb-6"
+      style={{
+        width: '90px',
+        height: '90px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #19c37d 60%, #10b981 100%)',
+        boxShadow: '0 4px 16px rgba(25,195,125,0.18)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="48"
+    height="48"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#fff"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ display: 'block' }}
+  >
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  </svg>
+    </div>
+
+    <h3>Ready to Get Started?</h3>
+
+    <p className="start-desc">
+      Takes about 2 minutes. No account required.
+    </p>
+
+    <button
+      type="button"
+      onClick={() => activateChat()}
+      style={{
+        background: '#19c37d',
+        color: '#23283a',
+        border: 'none',
+        borderRadius: '25px',
+        fontSize: '1.15rem',
+        fontWeight: 600,
+        padding: '14px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        cursor: 'pointer',
+        transition: 'background 0.2s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = '#10b981';
+        e.currentTarget.style.color = '#1C352D';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = '#19c37d';
+        e.currentTarget.style.color = '#23283a';
+      }}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#23283a"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ marginRight: '8px' }}
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+      </svg>
+      Start Conversation
+    </button>
+  </div>
+)}     </div>
+          {isChatActive && (
           <div className="chat-layout">
             <div className="chat-card">
               <div className="geo-selector">
@@ -433,14 +708,37 @@ export default function Home() {
                     </p>
                   </div>
                 ) : (
-                  messages.map((message, index) => (
-                    <div
-                      key={`${message.role}-${index}`}
-                      className={`chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}
-                    >
-                      {message.content}
-                    </div>
-                  ))
+                  <div className="openai-chat-feed">
+                    {messages.map((message, index) => {
+                      if (Array.isArray(message.content)) {
+                        return (
+                          <div
+                            key={`${message.role}-${index}`}
+                            className={`openai-chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}
+                          >
+                            <ol style={{ margin: 0, paddingLeft: '1.5em', listStyle: 'none' }}>
+                              {message.content.map((item, i) => (
+                                <li key={i} style={{ position: 'relative', paddingBottom: '16px', marginBottom: '16px' }}>
+                                  <span style={{ fontWeight: 'bold', marginRight: '8px' }}>{i + 1}.</span>
+                                  <span>{String(item).replace(/^\d+\.\s*/, '')}</span>
+                                  <hr style={{ border: 'none', borderBottom: '1px solid #e0e0e0', margin: '12px 0 0 0' }} />
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div
+                            key={`${message.role}-${index}`}
+                            className={`openai-chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}
+                          >
+                            {message.content}
+                          </div>
+                        );
+                      }
+                    })}
+                  </div>
                 )}
                 {isLoading && isChatActive && (
                   <div className="chat-bubble assistant">Thinking through your situation...</div>
@@ -449,14 +747,15 @@ export default function Home() {
               </div>
 
               {isChatActive && !readyForEmail && (
-                <form className="chat-input" onSubmit={sendMessage}>
+                <form className="openai-chat-input" onSubmit={sendMessage}>
                   <input
                     type="text"
                     placeholder="Type your response..."
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
+                    style={{ borderRadius: '24px', padding: '12px 18px', fontSize: '1.1rem', border: '1px solid #e0e0e0', marginRight: '8px', width: '85%' }}
                   />
-                  <button className="primary" type="submit" disabled={isLoading}>
+                  <button className="primary" type="submit" disabled={isLoading} style={{ borderRadius: '24px', padding: '12px 28px', fontSize: '1.1rem' }}>
                     Send
                   </button>
                 </form>
@@ -528,59 +827,94 @@ export default function Home() {
               </p>
             </aside>
           </div>
+)}
         </section>
 
-        <section className="geo-section" data-animate>
-          <div className="geo-content">
-            <h2>Local readiness for {selectedRegion.name}</h2>
-            <p>
-              Your plan adjusts for regional risks and the realities of your neighborhood in{' '}
-              {selectedRegion.name}. We focus on practical steps for {selectedRegion.hazards.join(', ')}.
-            </p>
+       <section className="geo-section">
+          <div className="geo-container">
+
+            <div className="geo-header">
+              <h2>Local Readiness for {selectedRegion.name}</h2>
+
+              <p>
+                Your preparedness plan adapts to real risks in your area — including storms,
+                outages, and supply disruptions across {selectedRegion.name}.
+                We focus on practical steps for {selectedRegion.hazards.join(", ")}.
+              </p>
+            </div>
+
             <div className="geo-grid">
+
               <div className="geo-card">
-                <h3>{selectedRegion.name} emergency checklist</h3>
+                <h3>Your Local Emergency Checklist</h3>
                 <p>
-                  A concise, locally aware checklist that fits your household and the risks most
-                  common in {selectedRegion.city}.
+                  A locally tailored checklist to help your household prepare for the
+                  most common emergencies in your region.
                 </p>
               </div>
+
               <div className="geo-card">
-                <h3>Neighborhood-ready planning</h3>
-                <p>Short, realistic steps for power, water, and communication plans near you.</p>
+                <h3>Neighborhood Communication & Supply Plan</h3>
+                <p>
+                  Practical steps to coordinate with neighbors and establish plans
+                  for water, power, and communication during disruptions.
+                </p>
               </div>
+
               <div className="geo-card">
-                <h3>Fast-start action list</h3>
-                <p>Prioritized actions you can complete in one weekend to build resilience.</p>
+                <h3>Fast-Start Action Plan</h3>
+                <p>
+                  Simple prioritized actions you can complete in one weekend to
+                  quickly improve your household resilience.
+                </p>
               </div>
+
             </div>
           </div>
         </section>
 
         <section className="faq-section" data-animate>
-          <div className="faq-content">
-            <h2>Frequently asked questions</h2>
-            <div className="faq-list">
-              <div className="faq-item">
-                <h3>What do I receive after chatting?</h3>
-                <p>
-                  A personalized PDF survival guide and emergency checklist tailored to {selectedRegion.name}
-                  and your household.
-                </p>
+              <div className="faq-container">
+
+                <h2 className="faq-title">Frequently Asked Questions</h2>
+
+                <div className="faq-list">
+                  {faqData.map((item, idx) => (
+                    <div key={item.question} className={`faq-item ${faqOpen[idx] ? "open" : ""}`}>
+
+                      <button
+                        className="faq-question"
+                        onClick={() => handleFaqToggle(idx)}
+                      >
+                        <span>{item.question}</span>
+
+                        <svg
+                          className={`faq-icon ${faqOpen[idx] ? "rotate" : ""}`}
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#19c37d"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </button>
+
+                      {faqOpen[idx] && (
+                        <div className="faq-answer">
+                          {item.answer}
+                        </div>
+                      )}
+
+                    </div>
+                  ))}
+                </div>
+
               </div>
-              <div className="faq-item">
-                <h3>Why do you need my email address?</h3>
-                <p>We use your email only to deliver the guide you requested.</p>
-              </div>
-              <div className="faq-item">
-                <h3>Is the guidance local to {selectedRegion.name}?</h3>
-                <p>
-                  Yes. We tailor the plan to the regional risks common in {selectedRegion.name}.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+            </section>
       </main>
     </SiteLayout>
   )

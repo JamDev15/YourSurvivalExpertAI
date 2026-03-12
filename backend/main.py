@@ -20,6 +20,9 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import simpleSplit
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
+import re
+
+
 
 # -------------------------------------------------
 # App & Config
@@ -46,9 +49,7 @@ app = FastAPI(title=APP_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://your-survival-expert-ai.vercel.app"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,7 +58,17 @@ app.add_middleware(
 # -------------------------------------------------
 # Constants & Prompts
 # -------------------------------------------------
+EXPERT_PERSONA = (
+    "You are a survival preparedness advisor with 15+ years of experience "
+    "helping families prepare for real-world emergencies such as storms, "
+    "power outages, supply disruptions, and evacuations.\n\n"
 
+    "Your approach focuses on practical household preparedness, not extreme survivalism.\n"
+    "Your recommendations follow common preparedness principles used by FEMA, "
+    "Red Cross guidance, and community resilience training.\n\n"
+
+    "You help normal families prepare calmly and confidently using realistic steps."
+)
 PROFILE_TEMPLATE: Dict[str, str] = {
     "preparingFor": "",
     "concern": "",
@@ -70,34 +81,89 @@ QUESTION_ORDER = [
     ("region", "What general region are you in?"),
 ]
 
+
+
 CHAT_PROMPT = (
-    "You are a calm, knowledgeable survival expert. "
-    "Speak clearly and practically. Ask one question at a time. "
-    "Avoid fear-based language. "
-    "Align guidance with the site context provided. Do not quote or reproduce site text verbatim; paraphrase. "
-    "Gather the following information naturally: preparingFor, concern, region. Ask exactly 3 questions, one at a time.\n\n"
-    "CRITICAL FORMAT REQUIREMENT: After EVERY question, ALWAYS provide 3-4 bullet-point guidelines to help the user think about their answer. "
-    "Use ONLY dashes (no dots, no numbers). Guidelines must be on separate lines starting with dash.\n\n"
-    "MANDATORY STRUCTURE:\n"
-    "[Your question here?]\n"
-    "- Guideline one about this topic\n"
-    "- Guideline two about this topic\n"
-    "- Guideline three about this topic\n\n"
-    "You MUST follow this format for EVERY question before moving forward.\n\n"
-    "When all 3 fields (preparingFor, concern, region) are collected, "
-    "provide a brief summary of their profile and end with exactly this text:\n"
-    "Ready for your personalized guide? Reply with your email address and I'll send it to you."
+    f"{EXPERT_PERSONA}\n\n"
+
+    "Tone guidelines:\n"
+    "- Calm\n"
+    "- Practical\n"
+    "- Clear\n"
+    "- Confidence-building\n\n"
+
+
+    "Advice rules:\n"
+    "Avoid generic survival advice that applies to all emergencies.\n"
+    "Advice must adapt to the user's concern and region.\n\n"
+    "Your job is to help users build a personalized preparedness plan.\n"
+    "You must guide the conversation step-by-step and collect information before giving detailed advice.\n\n"
+
+    "STRICT RULES:\n"
+    "1. Ask one question at a time.\n"
+    "2. Only ask for missing fields: preparingFor, concern, region.\n"
+    "3. Never repeat a question if the information is already provided.\n"
+    "4. Do NOT generate a full survival checklist yet.\n"
+    "5. Keep responses short, calm, and supportive.\n"
+    "6. Do NOT use fear-based language.\n"
+    "7. Never provide a full preparedness checklist until all required profile fields are collected.\n\n"
+
+    "Conversation Goal:\n"
+    "Collect these fields:\n"
+    "- preparingFor (self or household)\n"
+    "- concern (type of emergency)\n"
+    "- region (country or general location)\n\n"
+
+    "When information is missing:\n"
+    "Ask the next question from the list.\n\n"
+
+    "When all 3 fields are collected:\n"
+    "Briefly summarize what the user is preparing for in 1 sentence.\n"
+    "Then say exactly:\n"
+    "Ready for your personalized survival guide? Reply with your email address and I'll send it to you."
 )
 
 GUIDE_PROMPT = (
-    "You are a calm survival expert. "
-    "Write a personalized emergency preparedness guide based on the reference material provided.\n\n"
-    "Structure:\n"
-    "- Short overview paragraph\n"
-    "- Checklist with bullet points (extract and adapt from the reference)\n"
-    "- Practical, low-stress next steps\n\n"
-    "Tone: calm, practical, non-alarmist.\n"
-    "Use the reference material to ground your recommendations. Paraphrase and personalize, don't quote directly."
+    f"{EXPERT_PERSONA}\n\n"
+
+    "Tone guidelines:\n"
+    "- Calm\n"
+    "- Practical\n"
+    "- Clear\n"
+    "- Confidence-building\n\n"
+    "STRICT OUTPUT FORMAT:\n"
+    "Your response must contain ONLY these three sections in this exact order:\n"
+    "1) Short Overview\n"
+    "2) Numbered Preparedness Checklist\n"
+    "3) Practical Next Steps\n\n"
+
+    "OVERVIEW RULES:\n"
+    "- Write 2–4 sentences.\n"
+    "- Reference the user's region.\n"
+    "- Reference the user's concern or emergency type.\n"
+    "- Reference who they are preparing for.\n"
+    "- Tone must be calm, practical, and empowering.\n"
+    "- Avoid fear-based language.\n\n"
+
+    "CHECKLIST RULES:\n"
+    "- Use a numbered list.\n"
+    "- Each item must be on its own line.\n"
+    "- Do not combine items.\n"
+    "- Quantities must be realistic.\n"
+    "- Adapt the list to the user's emergency type and region.\n\n"
+
+    "Examples:\n"
+    "If the concern is gas shortage: include fuel planning, transportation alternatives, supply chain disruption preparation.\n"
+    "If the concern is hurricane: include evacuation planning and waterproofing supplies.\n"
+    "If winter storm: include cold weather preparation.\n\n"
+
+    "NEXT STEPS RULES:\n"
+    "- Use dash bullet points.\n"
+    "- Each step must be on its own line.\n"
+    "- Focus on simple actions the user can take within a few days.\n\n"
+
+    "Do NOT include greetings, marketing language, or calls to action.\n"
+    "Return ONLY the three sections."
 )
 
 SITE_CONTEXT = (
@@ -262,6 +328,7 @@ def call_openai(messages: List[Dict[str, str]]) -> Optional[str]:
             model=OPENAI_MODEL,
             temperature=0.4,
             messages=messages,
+            timeout=30
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -319,6 +386,11 @@ def build_guide_text(profile: Dict[str, str]) -> str:
 
     return call_openai(messages) or fallback
 
+def force_numbered_newlines(text: str) -> str:
+    # Insert newline before each numbered item except the first
+    text = re.sub(r"\s*(\d+\.\s)", r"\n\1", text)
+    # Remove leading newline if added
+    return text.strip()
 # -------------------------------------------------
 # PDF & Email
 # -------------------------------------------------
@@ -460,7 +532,27 @@ def send_email(email: str, pdf_bytes: bytes) -> None:
         server.starttls(context=context)
         server.login(SMTP_USER, SMTP_PASS)
         server.send_message(message)
-
+def build_supply_list(profile: Dict[str, str]) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a preparedness expert creating a supply checklist.\n"
+                "Generate a scenario-specific emergency supply list.\n"
+                "The list must match the user's concern and region.\n\n"
+                "STRICT RULES:\n"
+                "- Output only a numbered checklist.\n"
+                "- Each item must be on its own line.\n"
+                "- No explanations.\n"
+                "- No paragraphs.\n"
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"User profile: {profile}\nGive the supply list only.",
+        },
+    ]
+    return call_openai(messages) or ""
 # -------------------------------------------------
 # Routes
 # -------------------------------------------------
@@ -471,12 +563,49 @@ def health():
 
 
 @app.post("/api/chat")
+@app.post("/chat")
 def chat(req: ChatRequest):
     profile = normalize_profile(req.profile)
-    latest_user = next((m for m in reversed(req.messages) if m.role == "user"), None)
-    profile = extract_profile_from_message(profile, latest_user.content if latest_user else None)
+    # Extract profile from all user messages for better context retention
+    for m in req.messages:
+        if m.role == "user":
+            profile = extract_profile_from_message(profile, m.content)
     missing = get_missing_fields(profile)
+    latest_user = next((m for m in reversed(req.messages) if m.role == "user"), None)
     latest_text = latest_user.content if latest_user else ""
+
+    # OVERRIDE: If user requests immediate supply list, skip profile questions
+    # immediate_phrases = [
+    #     "just give me now", "give me list", "give me supplies", "give me checklist", "give me items", "give me what to store", "just list", "just checklist", "just items", "just supplies"
+    # ]
+    def extract_numbered_list(text: str) -> str:
+        import re
+        lines = text.splitlines()
+        numbered_lines = [line.strip() for line in lines if re.match(r"^\d+\. ", line.strip())]
+        # If the model returns the list in a single paragraph, split by ' N. '
+        if not numbered_lines and re.search(r"\d+\. ", text):
+            numbered_lines = re.findall(r"\d+\. [^\n]+", text)
+        return "\n".join(numbered_lines)
+    
+    def extract_numbered_items(text: str) -> list[str]:
+        # Improved regex: splits items even if compressed, each on its own line
+        items = re.findall(r"\d+\.\s.*?(?=\n?\d+\.|$)", text, re.S)
+        return [item.strip() for item in items]
+    
+    def needs_supply_list(text: str) -> bool:
+        keywords = ["what should i store", "what should i prepare", "supply list", "emergency supplies", "give me list", "give me supplies", "checklist", "items to store", "items to prepare", "just give me now", "just list", "just checklist", "just items", "just supplies"]
+        return any(k in text.lower() for k in keywords)
+
+    if latest_text and needs_supply_list(latest_text):
+        print("[OpenAI] Calling OpenAI for supply list (reference-based)...")
+        supply_list = build_supply_list(profile)
+        items = extract_numbered_items(supply_list)
+        # Return string for frontend compatibility
+        return {
+            "reply": "\n".join(items),
+            "profile": profile,
+            "readyForEmail": not missing,
+        }
 
     if latest_text:
         email_candidate = detect_email_candidate(latest_text)
@@ -514,33 +643,63 @@ def chat(req: ChatRequest):
                 "readyForEmail": True,
             }
 
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                f"{CHAT_PROMPT}\n\nSite context:\n{SITE_CONTEXT}\n\n"
-                f"Known profile: {profile}\nMissing: {missing}"
-            ),
-        },
-        *[m.dict() for m in req.messages[-10:]],
-    ]
-
-    ai_reply = call_openai(messages)
-    if missing and ai_reply and re.search(r"\bemail\b", ai_reply, re.IGNORECASE):
-        reply = build_chat_reply(profile, missing)
+    # Switch prompt logic: if all profile fields are filled, use advice/guide mode
+    if not missing:
+        guide_messages = [
+            {
+                "role": "system",
+                "content": GUIDE_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Create a personalized survival preparedness guide.\n\n"
+                    f"Preparing for: {profile['preparingFor']}\n"
+                    f"Primary concern: {profile['concern']}\n"
+                    f"Region: {profile['region']}\n\n"
+                    "Generate a guide tailored to this situation."
+                )
+            },
+            *[m.dict() for m in req.messages[-10:]],
+        ]
+        print("[OpenAI] Calling OpenAI for advice/guide mode...")
+        ai_reply = call_openai(guide_messages)
+        reply = ai_reply or "Let me know if you need more details or want your guide emailed."
+        return {
+            "reply": reply,
+            "profile": profile,
+            "readyForEmail": True,
+        }
     else:
-        reply = ai_reply or build_chat_reply(profile, missing)
-
-    return {
-        "reply": reply,
-        "profile": profile,
-        "readyForEmail": not missing,
-    }
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"{CHAT_PROMPT}\n\nSite context:\n{SITE_CONTEXT}\n\n"
+                    f"Known profile: {profile}\nMissing: {missing}"
+                ),
+            },
+            *[m.dict() for m in req.messages[-10:]],
+        ]
+        print("[OpenAI] Calling OpenAI for chat endpoint...")
+        ai_reply = call_openai(messages)
+        if missing and ai_reply and re.search(r"\bemail\b", ai_reply, re.IGNORECASE):
+            reply = build_chat_reply(profile, missing)
+        else:
+            reply = ai_reply or build_chat_reply(profile, missing)
+        return {
+            "reply": reply,
+            "profile": profile,
+            "readyForEmail": not missing,
+        }
 
 
 @app.post("/api/guide")
+@app.post("/guide")
+
 def guide(req: GuideRequest):
     profile = normalize_profile(req.profile)
+    print("[OpenAI] Calling OpenAI for guide endpoint...")
     text = build_guide_text(profile)
     pdf = create_pdf("Personalized Survival Guide", text, profile)
     send_email(req.email, pdf)
