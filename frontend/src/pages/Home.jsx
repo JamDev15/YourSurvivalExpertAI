@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SiteLayout from '../components/SiteLayout.jsx'
+import ChatMessage from '../components/ChatMessage.jsx'
 import useSeo from '../hooks/useSeo.js'
 import '../App.css'
 
@@ -407,45 +408,123 @@ export default function Home() {
         <section className="hero-section">
           <div className="hero-overlay" />
           <div className="hero-inner">
-            <span className="hero-badge">AI-Powered Preparedness</span>
-            <h1 className="hero-headline">
-              Your Personalized<br />
-              <span className="hero-gradient-text">Survival Guide</span>
-            </h1>
-            <p className="hero-sub">
-              Answer a few questions and our AI will create a custom survival guide
-              tailored to your situation, location, and experience level.
-            </p>
-            <button
-              className="hero-cta-btn"
-              onClick={() => {
-                activateChat()
-                chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
-            >
-              Get Your Free Guide
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </button>
-            <p className="hero-footnote">Free &nbsp;·&nbsp; No account required &nbsp;·&nbsp; Delivered to your inbox</p>
+
+            {/* Left column */}
+            <div className="hero-left">
+              <span className="hero-badge">AI-Powered Preparedness</span>
+              <h1 className="hero-headline">
+                Your Personalized<br />
+                <span className="hero-gradient-text">Survival Guide</span>
+              </h1>
+              <p className="hero-sub">
+                Answer a few questions and our AI will create a custom survival guide
+                tailored to your situation, location, and experience level.
+              </p>
+              <button
+                className="hero-cta-btn"
+                onClick={() => {
+                  activateChat()
+                  chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              >
+                Get Your Free Guide
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+              <p className="hero-footnote">Free &nbsp;·&nbsp; No account required &nbsp;·&nbsp; Delivered to your inbox</p>
+            </div>
+
+            {/* Right column — chatbot preview */}
+            <div className="hero-right">
+              <div className="hero-chat-preview">
+                <div className="hero-chat-header">
+                  <div className="hero-chat-avatar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19c37d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="hero-chat-name">Survival Expert AI</p>
+                    <p className="hero-chat-status">
+                      <span className="hero-chat-dot" />
+                      Online now
+                    </p>
+                  </div>
+                </div>
+
+                <div className="hero-chat-body">
+                  <div className="hero-msg assistant">
+                    Hi! What situation are you preparing for — hurricane, wildfire, power outage, or something else?
+                  </div>
+                  <div className="hero-msg user">
+                    We're in Florida and worried about hurricane season.
+                  </div>
+                  <div className="hero-msg assistant">
+                    Got it. I'll build a personalized hurricane plan for your household. How many people are you preparing for?
+                  </div>
+                  <div className="hero-msg-typing">
+                    <span /><span /><span />
+                  </div>
+                </div>
+
+                <div className="hero-chat-input-bar">
+                  <span className="hero-chat-placeholder">Type your response...</span>
+                  <button className="hero-chat-send" aria-label="Send" onClick={activateChat}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </section>
 
         {/* ── TRUST BAR ── */}
         <div className="trust-bar">
-          {[
-            { label: '2-minute setup', icon: '⚡' },
-            { label: 'Personalized to your region', icon: '📍' },
-            { label: 'PDF delivered to inbox', icon: '📄' },
-            { label: 'Completely free', icon: '✓' },
-          ].map((item) => (
-            <div key={item.label} className="trust-item">
-              <span className="trust-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </div>
-          ))}
+          <div className="trust-item">
+            <span className="trust-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </span>
+            <span>2-minute setup</span>
+          </div>
+          <div className="trust-item">
+            <span className="trust-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            </span>
+            <span>Personalized to your region</span>
+          </div>
+          <div className="trust-item">
+            <span className="trust-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </span>
+            <span>PDF delivered to inbox</span>
+          </div>
+          <div className="trust-item">
+            <span className="trust-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <polyline points="9 12 11 14 15 10" />
+              </svg>
+            </span>
+            <span>Completely free</span>
+          </div>
         </div>
 
         {/* ── WHO IS THIS FOR ── */}
@@ -564,30 +643,16 @@ export default function Home() {
                 <div className="chat-feed" aria-live="polite">
                   <div className="openai-chat-feed">
                     {messages.map((message, index) => {
-                      if (Array.isArray(message.content)) {
-                        return (
-                          <div
-                            key={`${message.role}-${index}`}
-                            className={`openai-chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}
-                          >
-                            <ol style={{ margin: 0, paddingLeft: '1.5em', listStyle: 'none' }}>
-                              {message.content.map((item, i) => (
-                                <li key={i} style={{ position: 'relative', paddingBottom: '16px', marginBottom: '16px' }}>
-                                  <span style={{ fontWeight: 'bold', marginRight: '8px' }}>{i + 1}.</span>
-                                  <span>{String(item).replace(/^\d+\.\s*/, '')}</span>
-                                  <hr style={{ border: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', margin: '12px 0 0 0' }} />
-                                </li>
-                              ))}
-                            </ol>
-                          </div>
-                        )
-                      }
+                      const isAssistant = message.role === 'assistant'
+                      const text = Array.isArray(message.content)
+                        ? message.content.join('\n')
+                        : String(message.content)
                       return (
                         <div
                           key={`${message.role}-${index}`}
-                          className={`openai-chat-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}
+                          className={`openai-chat-bubble ${isAssistant ? 'assistant' : 'user'}`}
                         >
-                          {message.content}
+                          {isAssistant ? <ChatMessage content={text} /> : text}
                         </div>
                       )
                     })}
