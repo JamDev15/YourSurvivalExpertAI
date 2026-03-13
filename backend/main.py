@@ -23,7 +23,6 @@ from reportlab.pdfgen import canvas
 import re
 
 
-
 # -------------------------------------------------
 # App & Config
 # -------------------------------------------------
@@ -59,16 +58,24 @@ app.add_middleware(
 # Constants & Prompts
 # -------------------------------------------------
 EXPERT_PERSONA = (
-    "You are a survival preparedness advisor with 15+ years of experience "
-    "helping families prepare for real-world emergencies such as storms, "
-    "power outages, supply disruptions, and evacuations.\n\n"
+    "You are Commander Alex Reid — a senior emergency preparedness advisor with 20+ years of field experience "
+    "working with FEMA, the American Red Cross, and community resilience programs across the United States. "
+    "You have helped thousands of families build practical, realistic emergency plans.\n\n"
 
-    "Your approach focuses on practical household preparedness, not extreme survivalism.\n"
-    "Your recommendations follow common preparedness principles used by FEMA, "
-    "Red Cross guidance, and community resilience training.\n\n"
+    "Your expertise covers:\n"
+    "- Natural disasters: hurricanes, tornadoes, wildfires, earthquakes, floods, winter storms\n"
+    "- Infrastructure failures: power grid outages, water disruptions, supply chain breakdowns\n"
+    "- Civil emergencies: evacuations, shelter-in-place scenarios, communication blackouts\n"
+    "- Medical preparedness: first aid, medication management, special needs planning\n\n"
 
-    "You help normal families prepare calmly and confidently using realistic steps."
+    "Your communication style is:\n"
+    "- Authoritative but warm — like a trusted expert, not a drill sergeant\n"
+    "- Clear and structured — you use headers, numbered steps, and bullet points\n"
+    "- Regionally specific — you always tailor advice to the user's location and risks\n"
+    "- Confidence-building — you reduce anxiety by giving people concrete, actionable steps\n"
+    "- Never alarmist — you focus on preparation, not fear\n"
 )
+
 PROFILE_TEMPLATE: Dict[str, str] = {
     "preparingFor": "",
     "concern": "",
@@ -82,88 +89,106 @@ QUESTION_ORDER = [
 ]
 
 
-
 CHAT_PROMPT = (
     f"{EXPERT_PERSONA}\n\n"
 
-    "Tone guidelines:\n"
-    "- Calm\n"
-    "- Practical\n"
-    "- Clear\n"
-    "- Confidence-building\n\n"
+    "You are Commander Alex Reid. Respond in character at all times.\n\n"
 
+    "PHASE 1 — PROFILE COLLECTION (when any of preparingFor, concern, or region are missing):\n"
+    "- Ask ONE missing question at a time, warmly and professionally.\n"
+    "- Keep each response SHORT: 2-3 sentences maximum.\n"
+    "- Never repeat a question already answered.\n"
+    "- Never provide detailed survival advice until the profile is complete.\n"
+    "- Do not generate checklists, headers, or long responses during profile collection.\n"
+    "- Do NOT use fear-based language.\n\n"
 
-    "Advice rules:\n"
-    "Avoid generic survival advice that applies to all emergencies.\n"
-    "Advice must adapt to the user's concern and region.\n\n"
-    "Your job is to help users build a personalized preparedness plan.\n"
-    "You must guide the conversation step-by-step and collect information before giving detailed advice.\n\n"
+    "PHASE 2 — DETAILED ADVICE (when all fields are collected and user asks follow-up questions):\n"
+    "- Give DETAILED, FORMATTED responses using markdown-style structure.\n"
+    "- Use ## for main section headers (e.g., ## Immediate Priorities).\n"
+    "- Use ### for sub-section headers.\n"
+    "- Use **bold** for emphasis on critical points.\n"
+    "- Use numbered lists for step-by-step actions.\n"
+    "- Use - for bullet points.\n"
+    "- Never be generic — always reference the user's specific region, concern, and household.\n"
+    "- Responses should be long, thorough, and well-organized into sections.\n\n"
 
-    "STRICT RULES:\n"
-    "1. Ask one question at a time.\n"
-    "2. Only ask for missing fields: preparingFor, concern, region.\n"
-    "3. Never repeat a question if the information is already provided.\n"
-    "4. Do NOT generate a full survival checklist yet.\n"
-    "5. Keep responses short, calm, and supportive.\n"
-    "6. Do NOT use fear-based language.\n"
-    "7. Never provide a full preparedness checklist until all required profile fields are collected.\n\n"
-
-    "Conversation Goal:\n"
+    "CONVERSATION GOAL:\n"
     "Collect these fields:\n"
     "- preparingFor (self or household)\n"
     "- concern (type of emergency)\n"
     "- region (country or general location)\n\n"
 
-    "When information is missing:\n"
-    "Ask the next question from the list.\n\n"
-
     "When all 3 fields are collected:\n"
     "Briefly summarize what the user is preparing for in 1 sentence.\n"
-    "Then say exactly:\n"
+    "Then say EXACTLY:\n"
     "Ready for your personalized survival guide? Reply with your email address and I'll send it to you."
 )
 
 GUIDE_PROMPT = (
     f"{EXPERT_PERSONA}\n\n"
 
-    "Tone guidelines:\n"
-    "- Calm\n"
-    "- Practical\n"
-    "- Clear\n"
-    "- Confidence-building\n\n"
-    "STRICT OUTPUT FORMAT:\n"
-    "Your response must contain ONLY these three sections in this exact order:\n"
-    "1) Short Overview\n"
-    "2) Numbered Preparedness Checklist\n"
-    "3) Practical Next Steps\n\n"
+    "You are generating a deeply detailed, well-structured personalized survival guide. "
+    "The guide must be specific to the user's region, concern, and household composition. "
+    "Never produce generic advice — every section must reflect real regional risks, realistic quantities, and actionable steps.\n\n"
 
-    "OVERVIEW RULES:\n"
-    "- Write 2–4 sentences.\n"
-    "- Reference the user's region.\n"
-    "- Reference the user's concern or emergency type.\n"
-    "- Reference who they are preparing for.\n"
-    "- Tone must be calm, practical, and empowering.\n"
-    "- Avoid fear-based language.\n\n"
+    "STRICT OUTPUT FORMAT — produce ALL of the following sections in this EXACT order:\n\n"
 
-    "CHECKLIST RULES:\n"
-    "- Use a numbered list.\n"
-    "- Each item must be on its own line.\n"
-    "- Do not combine items.\n"
-    "- Quantities must be realistic.\n"
-    "- Adapt the list to the user's emergency type and region.\n\n"
+    "## Overview\n"
+    "[Write 3-5 sentences: describe the regional context, what the specific threat involves, who is being prepared for, "
+    "and close with a tone of empowerment — remind the reader that preparation equals confidence.]\n\n"
 
-    "Examples:\n"
-    "If the concern is gas shortage: include fuel planning, transportation alternatives, supply chain disruption preparation.\n"
-    "If the concern is hurricane: include evacuation planning and waterproofing supplies.\n"
-    "If winter storm: include cold weather preparation.\n\n"
+    "## Threat Assessment: [Emergency Type] in [Region]\n"
+    "[Write 2-3 paragraphs: cover the specific risks of this emergency in this region, relevant seasonal factors, "
+    "typical duration and impact, and any historical context or notable events if relevant.]\n\n"
 
-    "NEXT STEPS RULES:\n"
-    "- Use dash bullet points.\n"
-    "- Each step must be on its own line.\n"
-    "- Focus on simple actions the user can take within a few days.\n\n"
+    "## Essential Supply Checklist\n"
+    "[Use the following sub-categories. Number each item within its category. Be specific with quantities.]\n\n"
+    "### Water & Hydration\n"
+    "[At minimum: 1 gallon of water per person per day for 3 days minimum. List containers, purification, etc.]\n\n"
+    "### Food & Nutrition\n"
+    "[Non-perishable foods specific to household size and concern. Include calorie targets if relevant.]\n\n"
+    "### Power & Lighting\n"
+    "[Batteries, flashlights, power banks, generators, solar options — specific to the emergency type.]\n\n"
+    "### Communication & Navigation\n"
+    "[NOAA weather radio, hand-crank radio, maps, backup phone chargers, emergency contacts list.]\n\n"
+    "### First Aid & Medical\n"
+    "[Complete first aid kit contents, prescription medications (30-day supply), special needs items.]\n\n"
+    "### Documents & Financial\n"
+    "[Copies of IDs, insurance docs, cash in small bills, USB drive with digital copies.]\n\n"
+    "### [Emergency-Specific Category]\n"
+    "[Add one category specific to the emergency type — e.g., 'Evacuation Kit' for hurricane, "
+    "'Warmth & Shelter' for winter storm, 'Fire Escape Tools' for wildfire, 'Seismic Safety' for earthquake.]\n\n"
 
-    "Do NOT include greetings, marketing language, or calls to action.\n"
-    "Return ONLY the three sections."
+    "## Step-by-Step Action Plan\n"
+    "[Provide 10-15 numbered steps, ordered by priority. Each step must include a brief explanation of why it matters. "
+    "Steps should be achievable within days to weeks.]\n\n"
+
+    "## 72-Hour Emergency Timeline\n"
+    "[Format as three stages:]\n"
+    "### First Hour\n"
+    "[Immediate actions to take when the emergency begins or warning is issued.]\n"
+    "### First 24 Hours\n"
+    "[Stabilization actions: shelter, communication, resource check.]\n"
+    "### 24–72 Hours\n"
+    "[Sustained response: rationing, monitoring conditions, family coordination, when to evacuate vs. shelter.]\n\n"
+
+    "## Regional Resources & Contacts\n"
+    "[List resources specific to the user's region: local emergency management agency, nearest Red Cross chapter, "
+    "FEMA regional office, NOAA weather forecast office, local emergency alert system (e.g., Wireless Emergency Alerts, "
+    "county notification systems), and any region-specific hotlines.]\n\n"
+
+    "## Final Notes from Commander Reid\n"
+    "[Write 2-3 sentences of encouragement. Reinforce that the act of preparing is itself an act of strength and love "
+    "for one's family. Remind the reader that preparation equals confidence, not fear.]\n\n"
+
+    "RULES:\n"
+    "- Every section listed above MUST be present in the output.\n"
+    "- Content must be SPECIFIC to the user's region and concern — never generic.\n"
+    "- Quantities must be realistic and specific (e.g., '1 gallon of water per person per day for 3 days minimum').\n"
+    "- Each checklist item must be on its own line.\n"
+    "- Use ## for main sections, ### for sub-sections.\n"
+    "- Do NOT include greetings, marketing language, or calls to action.\n"
+    "- Return ONLY the guide content."
 )
 
 SITE_CONTEXT = (
@@ -274,26 +299,26 @@ def validate_email(email: str) -> bool:
     """Validate email format."""
     if not email or not isinstance(email, str):
         return False
-    
+
     # RFC 5322 simplified email validation
     email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
     if not re.match(email_regex, email):
         return False
-    
+
     local_part, domain = email.rsplit('@', 1)
-    
+
     # Check local part
     if not local_part or len(local_part) > 64:
         return False
     if local_part.startswith('.') or local_part.endswith('.') or '..' in local_part:
         return False
-    
+
     # Check domain
     if len(domain) < 3 or not re.match(r'^\w+(\.\w+)*\.\w{2,}$', domain):
         return False
     if domain.startswith('-') or domain.endswith('-'):
         return False
-    
+
     return True
 
 
@@ -391,6 +416,7 @@ def force_numbered_newlines(text: str) -> str:
     text = re.sub(r"\s*(\d+\.\s)", r"\n\1", text)
     # Remove leading newline if added
     return text.strip()
+
 # -------------------------------------------------
 # PDF & Email
 # -------------------------------------------------
@@ -400,110 +426,309 @@ def create_pdf(title: str, body: str, profile: Dict[str, str]) -> bytes:
     pdf = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
 
-    left_margin = inch
-    right_margin = inch
+    left_margin = 0.85 * inch
+    right_margin = 0.85 * inch
     top_margin = 0.75 * inch
     bottom_margin = 0.75 * inch
     content_width = width - left_margin - right_margin
-    line_height = 0.2 * inch
-    y = height - top_margin
+    line_height = 0.19 * inch
+
+    # Color palette
+    COLOR_BG = colors.HexColor("#060e1a")
+    COLOR_COVER_BG = colors.HexColor("#0a1f14")
+    COLOR_GREEN = colors.HexColor("#19c37d")
+    COLOR_BODY_TEXT = colors.HexColor("#c8d4c0")
+    COLOR_SUBHEADER = colors.HexColor("#e8f0e8")
+    COLOR_DIVIDER = colors.HexColor("#1e3a2a")
+    COLOR_GRAY = colors.HexColor("#8a9a8a")
+    COLOR_WHITE = colors.HexColor("#ffffff")
+    COLOR_PROFILE_BG = colors.HexColor("#0d1f12")
+
+    page_number = [0]  # mutable for closure
+
+    # ------------------------------------------------------------------
+    # COVER PAGE
+    # ------------------------------------------------------------------
+    # Dark cover background
+    pdf.setFillColor(COLOR_COVER_BG)
+    pdf.rect(0, 0, width, height, fill=1, stroke=0)
+
+    # Top accent line
+    pdf.setStrokeColor(COLOR_GREEN)
+    pdf.setLineWidth(3)
+    pdf.line(left_margin, height - 0.6 * inch, width - right_margin, height - 0.6 * inch)
+
+    # Main title
+    cover_title = "PERSONALIZED SURVIVAL GUIDE"
+    pdf.setFont("Helvetica-Bold", 28)
+    pdf.setFillColor(COLOR_WHITE)
+    tw = pdf.stringWidth(cover_title, "Helvetica-Bold", 28)
+    pdf.drawString((width - tw) / 2, height / 2 + 1.1 * inch, cover_title)
+
+    # Subtitle: concern + region
+    concern_val = profile.get("concern", "Emergency Preparedness")
+    region_val = profile.get("region", "Your Region")
+    subtitle = f"{concern_val}  |  {region_val}"
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.setFillColor(COLOR_GREEN)
+    sw = pdf.stringWidth(subtitle, "Helvetica-Bold", 16)
+    pdf.drawString((width - sw) / 2, height / 2 + 0.65 * inch, subtitle)
+
+    # Horizontal accent line below subtitle
+    pdf.setStrokeColor(COLOR_GREEN)
+    pdf.setLineWidth(1.5)
+    line_x1 = (width / 2) - 1.5 * inch
+    line_x2 = (width / 2) + 1.5 * inch
+    pdf.line(line_x1, height / 2 + 0.45 * inch, line_x2, height / 2 + 0.45 * inch)
+
+    # Prepared for
+    preparing_val = profile.get("preparingFor", "")
+    if preparing_val:
+        prep_text = f"Prepared for: {preparing_val}"
+        pdf.setFont("Helvetica", 12)
+        pdf.setFillColor(COLOR_GRAY)
+        ptw = pdf.stringWidth(prep_text, "Helvetica", 12)
+        pdf.drawString((width - ptw) / 2, height / 2 + 0.15 * inch, prep_text)
+
+    # Generation date
+    from datetime import date as _date
+    date_text = f"Generated: {_date.today().strftime('%B %d, %Y')}"
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(COLOR_GRAY)
+    dtw = pdf.stringWidth(date_text, "Helvetica", 10)
+    pdf.drawString((width - dtw) / 2, height / 2 - 0.15 * inch, date_text)
+
+    # Bottom branding
+    brand = "yoursurvivalexpert.ai"
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.setFillColor(COLOR_GREEN)
+    bw = pdf.stringWidth(brand, "Helvetica-Bold", 11)
+    pdf.drawString((width - bw) / 2, 0.6 * inch, brand)
+
+    # Bottom accent line
+    pdf.setStrokeColor(COLOR_GREEN)
+    pdf.setLineWidth(2)
+    pdf.line(left_margin, 0.45 * inch, width - right_margin, 0.45 * inch)
+
+    pdf.showPage()
+
+    # ------------------------------------------------------------------
+    # Helper: draw page background + header + footer
+    # ------------------------------------------------------------------
+    def start_content_page() -> float:
+        """Draw bg, header, footer frame. Returns starting y for content."""
+        page_number[0] += 1
+
+        # Page background
+        pdf.setFillColor(COLOR_BG)
+        pdf.rect(0, 0, width, height, fill=1, stroke=0)
+
+        # Header line
+        pdf.setStrokeColor(COLOR_GREEN)
+        pdf.setLineWidth(1)
+        header_line_y = height - 0.5 * inch
+        pdf.line(left_margin, header_line_y, width - right_margin, header_line_y)
+
+        # Header text
+        pdf.setFont("Helvetica", 8)
+        pdf.setFillColor(COLOR_GRAY)
+        pdf.drawString(left_margin, height - 0.42 * inch, "SURVIVAL GUIDE")
+        brand_w = pdf.stringWidth("yoursurvivalexpert.ai", "Helvetica", 8)
+        pdf.drawString(width - right_margin - brand_w, height - 0.42 * inch, "yoursurvivalexpert.ai")
+
+        # Footer line
+        footer_line_y = bottom_margin + 0.25 * inch
+        pdf.setStrokeColor(COLOR_DIVIDER)
+        pdf.setLineWidth(0.5)
+        pdf.line(left_margin, footer_line_y, width - right_margin, footer_line_y)
+
+        # Footer page number
+        pg_text = f"Page {page_number[0]}"
+        pdf.setFont("Helvetica", 8)
+        pdf.setFillColor(COLOR_GRAY)
+        pgw = pdf.stringWidth(pg_text, "Helvetica", 8)
+        pdf.drawString((width - pgw) / 2, bottom_margin + 0.08 * inch, pg_text)
+
+        return height - 0.8 * inch
+
+    # ------------------------------------------------------------------
+    # Helper: new content page
+    # ------------------------------------------------------------------
+    y_ref = [0.0]
 
     def new_page() -> None:
-        nonlocal y
         pdf.showPage()
-        pdf.setFont("Helvetica", 11)
-        y = height - top_margin
+        y_ref[0] = start_content_page()
 
     def ensure_space(lines_needed: int = 1) -> None:
-        nonlocal y
-        needed_height = max(lines_needed, 1) * line_height
-        if y - needed_height < bottom_margin:
+        needed_height = max(lines_needed, 1) * line_height + 0.1 * inch
+        if y_ref[0] - needed_height < bottom_margin + 0.5 * inch:
             new_page()
 
-    pdf.setFont("Helvetica-Bold", 24)
-    pdf.setFillColor(colors.HexColor("#2f4a3f"))
-    title_lines = simpleSplit(title, "Helvetica-Bold", 24, content_width)
-    ensure_space(len(title_lines) + 1)
-    for title_line in title_lines:
-        title_width = pdf.stringWidth(title_line, "Helvetica-Bold", 24)
-        title_x = (width - title_width) / 2
-        pdf.drawString(title_x, y, title_line)
-        y -= 0.32 * inch
+    # ------------------------------------------------------------------
+    # First content page
+    # ------------------------------------------------------------------
+    y_ref[0] = start_content_page()
+    y = y_ref[0]
 
-    y -= 0.2 * inch
-    pdf.setStrokeColor(colors.HexColor("#b07a4c"))
-    pdf.setLineWidth(1.5)
-    pdf.line(left_margin, y, width - right_margin, y)
-    y -= 0.25 * inch
+    # Profile summary box
+    box_padding = 0.15 * inch
+    box_height = 1.05 * inch
+    box_y = y - box_height
+    pdf.setFillColor(COLOR_PROFILE_BG)
+    pdf.setStrokeColor(COLOR_GREEN)
+    pdf.setLineWidth(1)
+    pdf.rect(left_margin, box_y, content_width, box_height, fill=1, stroke=1)
 
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.setFillColor(colors.HexColor("#1f1c1a"))
-    pdf.drawString(left_margin, y, "Your Profile")
-    y -= 0.22 * inch
+    # Profile box title
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.setFillColor(COLOR_GREEN)
+    pdf.drawString(left_margin + box_padding, y - box_padding - 0.02 * inch, "YOUR PREPAREDNESS PROFILE")
 
-    pdf.setFont("Helvetica", 10)
-    pdf.setFillColor(colors.HexColor("#4c4036"))
-    for key, value in profile.items():
-        display_key = key.replace("preparingFor", "Preparing For").replace("concern", "Primary Concern").replace("region", "Region")
-        profile_line = f"• {display_key}: {value}"
-        wrapped = simpleSplit(profile_line, "Helvetica", 10, content_width - 0.2 * inch)
-        ensure_space(len(wrapped) + 1)
-        for idx, segment in enumerate(wrapped):
-            indent = left_margin if idx == 0 else left_margin + 0.15 * inch
-            pdf.drawString(indent, y, segment)
-            y -= line_height
+    # Profile rows
+    profile_display = [
+        ("Preparing For", profile.get("preparingFor", "—")),
+        ("Primary Concern", profile.get("concern", "—")),
+        ("Region", profile.get("region", "—")),
+    ]
+    row_y = y - box_padding - 0.18 * inch
+    for label, value in profile_display:
+        pdf.setFont("Helvetica-Bold", 8)
+        pdf.setFillColor(COLOR_GREEN)
+        pdf.drawString(left_margin + box_padding, row_y, f"{label}:")
+        label_w = pdf.stringWidth(f"{label}:", "Helvetica-Bold", 8)
+        pdf.setFont("Helvetica", 8)
+        pdf.setFillColor(COLOR_BODY_TEXT)
+        pdf.drawString(left_margin + box_padding + label_w + 4, row_y, value)
+        row_y -= 0.22 * inch
 
-    y -= 0.15 * inch
-    pdf.setStrokeColor(colors.HexColor("#d9d2c3"))
-    pdf.setLineWidth(0.5)
-    pdf.line(left_margin, y, width - right_margin, y)
-    y -= 0.25 * inch
+    y = box_y - 0.3 * inch
+    y_ref[0] = y
 
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.setFillColor(colors.HexColor("#1f1c1a"))
-    pdf.drawString(left_margin, y, "Your Guide")
-    y -= 0.22 * inch
-
-    pdf.setFont("Helvetica", 11)
-    pdf.setFillColor(colors.HexColor("#1f1c1a"))
+    # ------------------------------------------------------------------
+    # Body text rendering
+    # ------------------------------------------------------------------
     for raw_line in body.splitlines():
         clean_line = raw_line.strip()
+        y = y_ref[0]
+
+        # Empty line -> small gap
         if not clean_line:
-            y -= 0.1 * inch
-            if y < bottom_margin:
+            y_ref[0] -= 0.08 * inch
+            if y_ref[0] < bottom_margin + 0.5 * inch:
                 new_page()
             continue
 
-        is_section_header = clean_line.startswith("##") or (clean_line.isupper() and len(clean_line) < 40)
-        is_bullet = clean_line.startswith("-") or clean_line.startswith("•")
-
-        if is_section_header:
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.setFillColor(colors.HexColor("#2f4a3f"))
-            display_text = clean_line.replace("##", "").strip()
-            ensure_space(2)
+        # Section header: ## Title
+        if clean_line.startswith("## "):
+            display_text = clean_line[3:].strip()
+            ensure_space(3)
+            y = y_ref[0]
+            y -= 0.12 * inch  # spacing before header
+            pdf.setFont("Helvetica-Bold", 14)
+            pdf.setFillColor(COLOR_GREEN)
             pdf.drawString(left_margin, y, display_text)
-            y -= 0.28 * inch
-        elif is_bullet:
-            pdf.setFont("Helvetica", 11)
-            pdf.setFillColor(colors.HexColor("#1f1c1a"))
+            y -= 0.2 * inch
+            # Underline
+            line_w = min(pdf.stringWidth(display_text, "Helvetica-Bold", 14) + 0.1 * inch, content_width)
+            pdf.setStrokeColor(COLOR_GREEN)
+            pdf.setLineWidth(0.75)
+            pdf.line(left_margin, y, left_margin + line_w, y)
+            y -= 0.14 * inch
+            y_ref[0] = y
+            continue
+
+        # Sub-section header: ### Title
+        if clean_line.startswith("### "):
+            display_text = clean_line[4:].strip()
+            ensure_space(2)
+            y = y_ref[0]
+            y -= 0.08 * inch
+            pdf.setFont("Helvetica-Bold", 11)
+            pdf.setFillColor(COLOR_SUBHEADER)
+            pdf.drawString(left_margin, y, display_text)
+            y -= 0.18 * inch
+            y_ref[0] = y
+            continue
+
+        # Numbered item: "1. text", "12. text"
+        numbered_match = re.match(r'^(\d+)\.\s+(.+)$', clean_line)
+        if numbered_match:
+            num_str = numbered_match.group(1)
+            item_text = numbered_match.group(2)
+            # Strip inline bold markers for plain rendering
+            item_text = re.sub(r'\*\*(.+?)\*\*', r'\1', item_text)
+            wrapped = simpleSplit(item_text, "Helvetica", 10, content_width - 0.45 * inch)
+            ensure_space(len(wrapped) + 1)
+            y = y_ref[0]
+            # Draw number badge
+            badge_x = left_margin
+            badge_y = y - 0.01 * inch
+            pdf.setFillColor(COLOR_GREEN)
+            pdf.setFont("Helvetica-Bold", 8)
+            num_w = pdf.stringWidth(num_str, "Helvetica-Bold", 8) + 6
+            pdf.rect(badge_x, badge_y - 0.01 * inch, num_w, 0.16 * inch, fill=1, stroke=0)
+            pdf.setFillColor(COLOR_BG)
+            pdf.drawString(badge_x + 3, badge_y + 0.02 * inch, num_str)
+            # Draw item text
+            text_x = left_margin + num_w + 4
+            text_width_avail = content_width - num_w - 4
+            wrapped = simpleSplit(item_text, "Helvetica", 10, text_width_avail)
+            pdf.setFont("Helvetica", 10)
+            pdf.setFillColor(COLOR_BODY_TEXT)
+            for idx, seg in enumerate(wrapped):
+                draw_x = text_x if idx == 0 else left_margin + 0.35 * inch
+                pdf.drawString(draw_x, y, seg)
+                y -= line_height
+            y -= 0.03 * inch
+            y_ref[0] = y
+            continue
+
+        # Bullet item: "- text" or "• text"
+        if clean_line.startswith("- ") or clean_line.startswith("• "):
             display_text = clean_line.lstrip("-•").strip()
-            wrapped_lines = simpleSplit(display_text, "Helvetica", 11, content_width - 0.3 * inch)
-            ensure_space(len(wrapped_lines) + 1)
-            for idx, segment in enumerate(wrapped_lines):
-                if idx == 0:
-                    pdf.drawString(left_margin + 0.15 * inch, y, "• " + segment)
-                else:
-                    pdf.drawString(left_margin + 0.3 * inch, y, segment)
+            display_text = re.sub(r'\*\*(.+?)\*\*', r'\1', display_text)
+            wrapped = simpleSplit(display_text, "Helvetica", 10, content_width - 0.3 * inch)
+            ensure_space(len(wrapped) + 1)
+            y = y_ref[0]
+            # Green bullet dot
+            pdf.setFillColor(COLOR_GREEN)
+            pdf.circle(left_margin + 0.06 * inch, y + 0.04 * inch, 0.03 * inch, fill=1, stroke=0)
+            pdf.setFont("Helvetica", 10)
+            pdf.setFillColor(COLOR_BODY_TEXT)
+            for idx, seg in enumerate(wrapped):
+                draw_x = left_margin + 0.18 * inch if idx == 0 else left_margin + 0.18 * inch
+                pdf.drawString(draw_x, y, seg)
                 y -= line_height
-        else:
-            pdf.setFont("Helvetica", 11)
-            pdf.setFillColor(colors.HexColor("#1f1c1a"))
-            wrapped_lines = simpleSplit(clean_line, "Helvetica", 11, content_width)
-            ensure_space(len(wrapped_lines) + 1)
-            for segment in wrapped_lines:
-                pdf.drawString(left_margin, y, segment)
+            y -= 0.02 * inch
+            y_ref[0] = y
+            continue
+
+        # Bold line: **text** (whole line bold)
+        if clean_line.startswith("**") and clean_line.endswith("**") and len(clean_line) > 4:
+            display_text = clean_line[2:-2].strip()
+            wrapped = simpleSplit(display_text, "Helvetica-Bold", 10, content_width)
+            ensure_space(len(wrapped) + 1)
+            y = y_ref[0]
+            pdf.setFont("Helvetica-Bold", 10)
+            pdf.setFillColor(COLOR_WHITE)
+            for seg in wrapped:
+                pdf.drawString(left_margin, y, seg)
                 y -= line_height
+            y_ref[0] = y
+            continue
+
+        # Regular text — strip inline bold markers for plain rendering
+        display_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_line)
+        wrapped = simpleSplit(display_text, "Helvetica", 10, content_width)
+        ensure_space(len(wrapped) + 1)
+        y = y_ref[0]
+        pdf.setFont("Helvetica", 10)
+        pdf.setFillColor(COLOR_BODY_TEXT)
+        for seg in wrapped:
+            pdf.drawString(left_margin, y, seg)
+            y -= line_height
+        y_ref[0] = y
 
     pdf.save()
     buffer.seek(0)
@@ -518,8 +743,18 @@ def send_email(email: str, pdf_bytes: bytes) -> None:
     message = EmailMessage()
     message["From"] = SMTP_FROM
     message["To"] = email
-    message["Subject"] = "Your Personalized Survival Guide"
-    message.set_content("Your personalized survival guide is attached.")
+    message["Subject"] = "Your Personalized Survival Guide — yoursurvivalexpert.ai"
+    message.set_content(
+        "Hello,\n\n"
+        "Thank you for using yoursurvivalexpert.ai. Your personalized survival guide is attached to this email as a PDF.\n\n"
+        "Your guide has been tailored specifically to your household, region, and primary concern. "
+        "Inside you will find a detailed threat assessment, a categorized supply checklist, a step-by-step action plan, "
+        "a 72-hour emergency timeline, and regional resources to help you get started immediately.\n\n"
+        "We recommend printing a copy and keeping it with your emergency supplies.\n\n"
+        "Stay prepared,\n"
+        "Commander Alex Reid\n"
+        "yoursurvivalexpert.ai\n"
+    )
     message.add_attachment(
         pdf_bytes,
         maintype="application",
@@ -532,27 +767,39 @@ def send_email(email: str, pdf_bytes: bytes) -> None:
         server.starttls(context=context)
         server.login(SMTP_USER, SMTP_PASS)
         server.send_message(message)
+
 def build_supply_list(profile: Dict[str, str]) -> str:
     messages = [
         {
             "role": "system",
             "content": (
-                "You are a preparedness expert creating a supply checklist.\n"
-                "Generate a scenario-specific emergency supply list.\n"
-                "The list must match the user's concern and region.\n\n"
-                "STRICT RULES:\n"
-                "- Output only a numbered checklist.\n"
+                f"{EXPERT_PERSONA}\n\n"
+                "You are generating a categorized emergency supply list tailored to the user's specific region, concern, and household.\n\n"
+                "STRICT OUTPUT FORMAT:\n"
+                "- Organize supplies into categories using ### Category Name headers.\n"
+                "- Number each item within its category (restart numbering at 1 for each category).\n"
+                "- Include specific quantities where applicable (e.g., '1 gallon of water per person per day for 3 days').\n"
+                "- Items must be specific to the emergency type and region — never generic.\n"
                 "- Each item must be on its own line.\n"
-                "- No explanations.\n"
-                "- No paragraphs.\n"
+                "- No paragraphs, no explanations beyond the item itself.\n"
+                "- No greetings, no closings, no calls to action.\n\n"
+                "Categories to include (adapt as needed for the emergency type):\n"
+                "### Water & Hydration\n"
+                "### Food & Nutrition\n"
+                "### Power & Lighting\n"
+                "### Communication & Navigation\n"
+                "### First Aid & Medical\n"
+                "### Documents & Financial\n"
+                "### [Emergency-Specific Category based on user concern]\n"
             ),
         },
         {
             "role": "user",
-            "content": f"User profile: {profile}\nGive the supply list only.",
+            "content": f"User profile: {profile}\nGenerate the categorized supply list only.",
         },
     ]
     return call_openai(messages) or ""
+
 # -------------------------------------------------
 # Routes
 # -------------------------------------------------
@@ -586,12 +833,12 @@ def chat(req: ChatRequest):
         if not numbered_lines and re.search(r"\d+\. ", text):
             numbered_lines = re.findall(r"\d+\. [^\n]+", text)
         return "\n".join(numbered_lines)
-    
+
     def extract_numbered_items(text: str) -> list[str]:
         # Improved regex: splits items even if compressed, each on its own line
         items = re.findall(r"\d+\.\s.*?(?=\n?\d+\.|$)", text, re.S)
         return [item.strip() for item in items]
-    
+
     def needs_supply_list(text: str) -> bool:
         keywords = ["what should i store", "what should i prepare", "supply list", "emergency supplies", "give me list", "give me supplies", "checklist", "items to store", "items to prepare", "just give me now", "just list", "just checklist", "just items", "just supplies"]
         return any(k in text.lower() for k in keywords)
