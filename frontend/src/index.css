@@ -8,8 +8,8 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #ffffff;
-  background-color: #1C352D;
+  color: #f1f5f9;
+  background-color: #060e1a;
 }
 
 * {
@@ -20,7 +20,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #1C352D;
+  background: #060e1a;
 }
 
 img {
