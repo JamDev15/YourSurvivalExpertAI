@@ -1258,89 +1258,179 @@ html, body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 22px;
+  padding: 20px;
   box-shadow: var(--shadow-card);
   position: sticky;
   top: 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
 }
 
 .profile-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 14px;
+}
+
+.profile-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent-glow);
+  border: 1px solid rgba(25, 195, 125, 0.2);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
 }
 
 .profile-card-title {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
-.progress-label {
-  font-size: 0.78rem;
+.progress-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(25, 195, 125, 0.1);
+  border: 1px solid rgba(25, 195, 125, 0.2);
   color: var(--accent);
-  font-weight: 600;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.progress-badge.complete {
+  background: rgba(25, 195, 125, 0.18);
+  border-color: rgba(25, 195, 125, 0.45);
 }
 
 .progress {
-  height: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 999px;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   overflow: hidden;
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent) 0%, #3b82f6 100%);
+  background: linear-gradient(90deg, var(--accent) 0%, #5eead4 100%);
   border-radius: 999px;
-  transition: width 0.5s ease;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0 0 16px;
 }
 
 .profile-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 16px;
+  margin: 0 0 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .profile-list-item {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 0.875rem;
+  gap: 10px;
+  font-size: 0.82rem;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
+  background: rgba(255,255,255,0.01);
+  transition: background var(--transition);
 }
 
 .profile-list-item:last-child {
   border-bottom: none;
-  padding-bottom: 0;
+}
+
+.profile-list-item:hover {
+  background: rgba(25, 195, 125, 0.03);
+}
+
+.profile-item-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.profile-item-icon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
 }
 
 .profile-item-label {
   color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .profile-item-value {
+  font-size: 0.8rem;
+  text-align: right;
+  max-width: 52%;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.profile-item-value.filled {
   color: var(--text-primary);
   font-weight: 600;
-  text-align: right;
-  max-width: 55%;
-  word-break: break-word;
+}
+
+.profile-item-value.empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 400;
 }
 
 .profile-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.profile-note svg {
+  color: var(--accent);
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1500,6 +1590,7 @@ html, body {
   height: 560px;
   background: radial-gradient(circle, rgba(25, 195, 125, 0.18) 0%, transparent 65%);
   pointer-events: none;
+  z-index: 0;
   animation: ctaGlowDrift 8s ease-in-out infinite alternate;
 }
 
@@ -1513,6 +1604,7 @@ html, body {
   height: 480px;
   background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, transparent 65%);
   pointer-events: none;
+  z-index: 0;
   animation: ctaGlowDrift 10s ease-in-out infinite alternate-reverse;
 }
 
@@ -1555,6 +1647,8 @@ html, body {
   box-shadow: 0 4px 24px rgba(25, 195, 125, 0.35);
   transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
   animation: btnGlowPulse 3s ease-in-out infinite;
+  position: relative;
+  z-index: 3;
 }
 
 .footer-cta-btn:hover {

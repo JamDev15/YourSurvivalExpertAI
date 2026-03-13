@@ -727,22 +727,100 @@ export default function Home() {
               </div>
 
               <aside className="profile-card">
+
+                {/* Header */}
                 <div className="profile-card-header">
-                  <h3 className="profile-card-title">Expert's Notes</h3>
-                  <span className="progress-label">{completionPercent}% complete</span>
+                  <div className="profile-card-title-row">
+                    <span className="profile-card-icon">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                    </span>
+                    <h3 className="profile-card-title">Expert's Notes</h3>
+                  </div>
+                  <span className={`progress-badge ${completionPercent === 100 ? 'complete' : ''}`}>
+                    {completionPercent === 100 ? (
+                      <>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Ready
+                      </>
+                    ) : `${completionPercent}%`}
+                  </span>
                 </div>
+
+                {/* Progress bar */}
                 <div className="progress">
                   <div className="progress-bar" style={{ width: `${completionPercent}%` }} />
                 </div>
+                <p className="progress-hint">
+                  {completionPercent === 100
+                    ? 'Profile complete — your guide is ready to generate.'
+                    : `${3 - Math.round(completionPercent / 100 * 3)} detail${3 - Math.round(completionPercent / 100 * 3) !== 1 ? 's' : ''} remaining`}
+                </p>
+
+                {/* Profile fields */}
                 <ul className="profile-list">
-                  {profileSummary.map((item) => (
+                  {[
+                    {
+                      label: 'Preparing for',
+                      value: profile.preparingFor,
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Primary concern',
+                      value: profile.concern,
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: 'Region',
+                      value: profile.region,
+                      icon: (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+                          <circle cx="12" cy="10" r="3" />
+                        </svg>
+                      ),
+                    },
+                  ].map((item) => (
                     <li key={item.label} className="profile-list-item">
-                      <span className="profile-item-label">{item.label}</span>
-                      <strong className="profile-item-value">{item.value}</strong>
+                      <div className="profile-item-left">
+                        <span className="profile-item-icon">{item.icon}</span>
+                        <span className="profile-item-label">{item.label}</span>
+                      </div>
+                      {item.value ? (
+                        <span className="profile-item-value filled">{item.value}</span>
+                      ) : (
+                        <span className="profile-item-value empty">Not yet shared</span>
+                      )}
                     </li>
                   ))}
                 </ul>
-                <p className="profile-note">Your details stay in this session until your guide is generated.</p>
+
+                {/* Footer note */}
+                <div className="profile-note">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  Session only — details are never stored
+                </div>
+
               </aside>
             </div>
           )}
