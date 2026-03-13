@@ -254,15 +254,52 @@ def extract_profile_from_message(profile: Dict[str, str], message: Optional[str]
             updated["preparingFor"] = "Myself"
 
     if not updated["concern"]:
-        cleaned = re.sub(r"[^a-z\s-]", "", lower).strip()
-        has_generic_question = re.search(r"\b(what|which|choices|options)\b", lower)
-        if 3 <= len(cleaned) <= 40 and not is_question and not has_generic_question:
-            updated["concern"] = message.strip()
+        # First: try to extract a specific emergency type keyword from the message
+        concern_pattern = re.search(
+            r"\b(hurri?cane|tornado|wildfire|fire|earthquake|flood|flooding|"
+            r"power outage|power outages|blackout|blackouts|grid failure|"
+            r"gas shortage|gas crisis|fuel shortage|fuel crisis|"
+            r"water shortage|water crisis|water outage|"
+            r"winter storm|snowstorm|blizzard|ice storm|"
+            r"heat wave|extreme heat|drought|"
+            r"supply chain|supply shortage|supply disruption|"
+            r"pandemic|disease outbreak|civil unrest|evacuation|"
+            r"tsunami|landslide|mudslide|volcano|volcanic eruption|nuclear)\b",
+            lower,
+        )
+        if concern_pattern:
+            # Normalize common misspellings
+            matched = concern_pattern.group(1)
+            matched = re.sub(r"^hurri?cane$", "Hurricane", matched, flags=re.IGNORECASE) or matched.title()
+            updated["concern"] = matched if matched == "Hurricane" else concern_pattern.group(1).title()
+        else:
+            # Fallback: capture short non-question messages as free-text concern
+            # Exclude words that describe who is preparing (preparingFor field)
+            is_who_word = re.search(
+                r"\b(family|kids|children|household|partner|spouse|myself|self|solo|single|only me|just me|for me)\b",
+                lower,
+            )
+            cleaned = re.sub(r"[^a-z\s-]", "", lower).strip()
+            has_generic_question = re.search(r"\b(what|which|choices|options)\b", lower)
+            if 3 <= len(cleaned) <= 40 and not is_question and not has_generic_question and not is_who_word:
+                updated["concern"] = message.strip()
+
+    # Keywords that indicate the message is about an emergency type, NOT a location
+    emergency_keywords = re.compile(
+        r"\b(hurricane|tornado|wildfire|fire|earthquake|flood|storm|outage|power|gas|fuel|"
+        r"water|shortage|crisis|pandemic|winter|heat|drought|supply|disruption|evacuation|"
+        r"prepare|preparing|preparedness|emergency|disaster|want|need|worried|concern|"
+        r"i want|i need|i am|i'm|we are|we're|our|my|plan|planning)\b"
+    )
 
     if not updated["region"]:
-        region_match = re.search(r"\b(?:in|from|near)\s+([A-Za-z\s]{2,40})", message, re.IGNORECASE)
+        # Explicit "in/from/near <place>" pattern — highest confidence
+        region_match = re.search(r"\b(?:in|from|near|located in|living in|based in)\s+([A-Za-z\s]{2,40})", message, re.IGNORECASE)
         if region_match:
-            updated["region"] = region_match.group(1).strip()
+            candidate = region_match.group(1).strip()
+            # Only accept if the extracted part itself doesn't contain emergency keywords
+            if not emergency_keywords.search(candidate.lower()):
+                updated["region"] = candidate
 
     if not updated["region"]:
         normalized = re.sub(r"[^a-z\s]", "", lower).strip()
@@ -275,17 +312,25 @@ def extract_profile_from_message(profile: Dict[str, str], message: Optional[str]
             "united kingdom": "United Kingdom",
             "canada": "Canada",
             "australia": "Australia",
+            "mexico": "Mexico",
+            "new zealand": "New Zealand",
         }
         if normalized in common_regions:
             updated["region"] = common_regions[normalized]
         else:
-            is_short_region = 3 <= len(normalized) <= 40 and re.fullmatch(r"[a-z\s]+", normalized)
+            is_short_region = 3 <= len(normalized) <= 30 and re.fullmatch(r"[a-z\s]+", normalized)
             is_not_other_field = not re.search(
-                r"\b(family|kids|children|household|partner|spouse|myself|self|solo|single|only me|beginner|intermediate|advanced)\b",
+                r"\b(family|kids|children|household|partner|spouse|myself|self|solo|single|only me|"
+                r"beginner|intermediate|advanced)\b",
                 lower,
             )
             is_not_greeting = normalized not in greeting_terms
-            if is_short_region and is_not_other_field and is_not_greeting:
+            # Reject if message contains emergency/action language
+            is_not_emergency = not emergency_keywords.search(lower)
+            # Reject if the message is longer than a typical place name (> 4 words = probably a sentence)
+            word_count = len(normalized.split())
+            is_place_length = word_count <= 4
+            if is_short_region and is_not_other_field and is_not_greeting and is_not_emergency and is_place_length:
                 updated["region"] = message.strip()
 
     return updated
@@ -844,14 +889,28 @@ def chat(req: ChatRequest):
         return any(k in text.lower() for k in keywords)
 
     if latest_text and needs_supply_list(latest_text):
+        if missing:
+            # Profile incomplete — don't generate supply list yet, ask for the next missing field
+            next_question = dict(QUESTION_ORDER)[missing[0]]
+            field_labels = {"preparingFor": "who you're preparing for", "concern": "your primary concern", "region": "your region"}
+            missing_labels = [field_labels.get(f, f) for f in missing]
+            return {
+                "reply": (
+                    f"I want to give you the most accurate supply list possible — "
+                    f"but I still need a couple of details first. "
+                    f"Could you tell me {' and '.join(missing_labels)}?\n\n"
+                    f"{next_question}"
+                ),
+                "profile": profile,
+                "readyForEmail": False,
+            }
         print("[OpenAI] Calling OpenAI for supply list (reference-based)...")
         supply_list = build_supply_list(profile)
         items = extract_numbered_items(supply_list)
-        # Return string for frontend compatibility
         return {
             "reply": "\n".join(items),
             "profile": profile,
-            "readyForEmail": not missing,
+            "readyForEmail": True,
         }
 
     if latest_text:
