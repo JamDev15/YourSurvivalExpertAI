@@ -69,7 +69,20 @@ export default function About() {
   useSeo({
     title: 'About | yoursurvivalexpert.ai',
     description:
-      'Learn how yoursurvivalexpert.ai helps people build calm, practical emergency plans with personalized survival guides and checklists.',
+      'Learn how yoursurvivalexpert.ai helps families build practical emergency plans with free AI-generated survival guides tailored to your region.',
+    canonical: 'https://yoursurvivalexpert.ai/about',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      name: 'About yoursurvivalexpert.ai',
+      url: 'https://yoursurvivalexpert.ai/about',
+      description: 'yoursurvivalexpert.ai is a free AI-powered emergency preparedness platform that builds personalized survival guides for households across the United States.',
+      publisher: {
+        '@type': 'Organization',
+        name: 'yoursurvivalexpert.ai',
+        url: 'https://yoursurvivalexpert.ai',
+      },
+    },
   })
 
   return (

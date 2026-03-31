@@ -1,7 +1,27 @@
-import { useEffect } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 
-export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
+export default function SiteLayout({ children, onCta }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [showScrollTop, setShowScrollTop] = useState(false)
+  const pageRef = useRef(null)
+  const location = useLocation()
+
+  // Close menu on route change
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handle = (e) => {
+      if (!e.target.closest('.site-header')) setMenuOpen(false)
+    }
+    document.addEventListener('click', handle)
+    return () => document.removeEventListener('click', handle)
+  }, [menuOpen])
+
   useEffect(() => {
     const targets = Array.from(document.querySelectorAll('[data-animate]'))
     if (targets.length === 0) return undefined
@@ -31,8 +51,52 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
     return () => observer.disconnect()
   }, [])
 
+  const [scrollProgress, setScrollProgress] = useState(0)
+
+  // Track scroll progress for the ring + visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY
+        || window.pageYOffset
+        || document.documentElement.scrollTop
+        || (pageRef.current ? pageRef.current.scrollTop : 0)
+
+      const docHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      ) - window.innerHeight
+
+      const progress = docHeight > 0 ? Math.min((scrollY / docHeight) * 100, 100) : 0
+      setScrollProgress(progress)
+      setShowScrollTop(scrollY > 100)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    document.addEventListener('scroll', handleScroll, { passive: true })
+    const el = pageRef.current
+    if (el) el.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('scroll', handleScroll)
+      if (el) el.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+    if (pageRef.current) pageRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // SVG ring math
+  const radius = 22
+  const circumference = 2 * Math.PI * radius
+  const dashOffset = circumference - (scrollProgress / 100) * circumference
+
   return (
-    <div className="page">
+    <>
+    <div className="page" ref={pageRef}>
 
       <header className="site-header">
         <Link to="/" className="brand">
@@ -47,6 +111,7 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
           </div>
         </Link>
 
+        {/* Desktop nav */}
         <nav className="site-nav">
           <NavLink to="/" end>Home</NavLink>
           <NavLink to="/about">About</NavLink>
@@ -55,6 +120,7 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
           <NavLink to="/terms">Terms</NavLink>
         </nav>
 
+        {/* Desktop CTA */}
         {onCta ? (
           <button className="header-cta" type="button" onClick={onCta}>
             Get Free Guide
@@ -71,6 +137,46 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
               <polyline points="12 5 19 12 12 19" />
             </svg>
           </Link>
+        )}
+
+        {/* Hamburger button — mobile only */}
+        <button
+          className={`nav-hamburger${menuOpen ? ' is-open' : ''}`}
+          type="button"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <span /><span /><span />
+        </button>
+
+        {/* Mobile dropdown */}
+        {menuOpen && (
+          <div className="mobile-nav">
+            <NavLink to="/" end onClick={() => setMenuOpen(false)}>Home</NavLink>
+            <NavLink to="/about" onClick={() => setMenuOpen(false)}>About</NavLink>
+            <NavLink to="/contact" onClick={() => setMenuOpen(false)}>Contact</NavLink>
+            <NavLink to="/privacy" onClick={() => setMenuOpen(false)}>Privacy</NavLink>
+            <NavLink to="/terms" onClick={() => setMenuOpen(false)}>Terms</NavLink>
+            <div className="mobile-nav-cta">
+              {onCta ? (
+                <button className="header-cta" type="button" onClick={() => { setMenuOpen(false); onCta() }}>
+                  Get Free Guide
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              ) : (
+                <Link className="header-cta" to="/?startChat=1#chat" onClick={() => setMenuOpen(false)}>
+                  Get Free Guide
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </Link>
+              )}
+            </div>
+          </div>
         )}
       </header>
 
@@ -90,13 +196,23 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
               <h3 className="footer-cta-title">Ready to build your survival plan?</h3>
               <p className="footer-cta-sub">Takes 2 minutes. Free. Delivered to your inbox.</p>
             </div>
-            <Link className="footer-cta-btn" to="/?startChat=1#chat">
-              Get My Free Guide
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </Link>
+            {onCta ? (
+              <button className="footer-cta-btn" type="button" onClick={onCta}>
+                Get My Free Guide
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </button>
+            ) : (
+              <Link className="footer-cta-btn" to="/?startChat=1#chat">
+                Get My Free Guide
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -138,6 +254,18 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
             </div>
 
             <div className="footer-col">
+              <h4>Guides</h4>
+              <nav className="footer-nav">
+                <Link to="/best-emergency-preparedness-guide">Best Emergency Guide</Link>
+                <Link to="/guide/houston-tx">Houston, TX</Link>
+                <Link to="/guide/miami-fl">Miami, FL</Link>
+                <Link to="/guide/los-angeles-ca">Los Angeles, CA</Link>
+                <Link to="/guide/chicago-il">Chicago, IL</Link>
+                <Link to="/guide/denver-co">Denver, CO</Link>
+              </nav>
+            </div>
+
+            <div className="footer-col">
               <h4>Legal</h4>
               <nav className="footer-nav">
                 <Link to="/privacy">Privacy Policy</Link>
@@ -172,5 +300,39 @@ export default function SiteLayout({ children, ctaLabel = 'Start', onCta }) {
       </footer>
 
     </div>
+
+      {/* Scroll to top button with progress ring */}
+      <button
+        className={`scroll-to-top${showScrollTop ? ' scroll-to-top--visible' : ''}`}
+        type="button"
+        aria-label="Scroll to top"
+        onClick={scrollToTop}
+      >
+        <svg className="scroll-progress-ring" width="50" height="50" viewBox="0 0 50 50">
+          {/* Track */}
+          <circle
+            cx="25" cy="25" r={radius}
+            fill="none"
+            stroke="rgba(255,255,255,0.07)"
+            strokeWidth="2.5"
+          />
+          {/* Progress arc */}
+          <circle
+            cx="25" cy="25" r={radius}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            transform="rotate(-90 25 25)"
+            style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+          />
+        </svg>
+        <svg className="scroll-to-top-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+    </>
   )
 }

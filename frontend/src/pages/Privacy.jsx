@@ -111,7 +111,8 @@ export default function Privacy() {
   useSeo({
     title: 'Privacy Policy | yoursurvivalexpert.ai',
     description:
-      'Read the privacy policy for yoursurvivalexpert.ai, including how we handle chat data and email delivery for survival guides.',
+      'Read the privacy policy for yoursurvivalexpert.ai. Learn how we handle chat data and email delivery for free personalized survival guides.',
+    canonical: 'https://yoursurvivalexpert.ai/privacy',
   })
 
   return (

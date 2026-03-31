@@ -52,7 +52,15 @@ export default function Contact() {
   useSeo({
     title: 'Contact | yoursurvivalexpert.ai',
     description:
-      'Contact yoursurvivalexpert.ai for support, partnerships, or questions about personalized survival guides and emergency checklists.',
+      'Contact yoursurvivalexpert.ai for support or questions about your free personalized emergency survival guide and checklist.',
+    canonical: 'https://yoursurvivalexpert.ai/contact',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'ContactPage',
+      name: 'Contact yoursurvivalexpert.ai',
+      url: 'https://yoursurvivalexpert.ai/contact',
+      description: 'Get in touch with the yoursurvivalexpert.ai team for support or partnerships.',
+    },
   })
 
   const copyEmail = () => {

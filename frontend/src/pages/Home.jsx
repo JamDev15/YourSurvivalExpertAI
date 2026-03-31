@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import SiteLayout from '../components/SiteLayout.jsx'
+import { Link, useSearchParams } from 'react-router-dom'
 import ChatMessage from '../components/ChatMessage.jsx'
+import ChatPreview from '../components/ChatPreview.jsx'
+import SiteLayout from '../components/SiteLayout.jsx'
 import useSeo from '../hooks/useSeo.js'
 import '../App.css'
 
@@ -11,6 +13,19 @@ const emptyProfile = {
   preparingFor: '',
   concern: '',
   region: '',
+}
+
+const VALID_CONCERNS = /hurricane|tornado|wildfire|wild fire|earthquake|flood|power outage|blackout|grid failure|winter storm|snowstorm|blizzard|ice storm|heat wave|drought|tsunami|landslide|mudslide|volcano|nuclear|pandemic|disease|civil unrest|evacuation|shelter|water shortage|supply chain|fire|storm|outage|emergency|disaster/i
+const VALID_PREPARING = /myself|self|just me|solo|family|household|kids|children|partner|spouse|wife|husband|relatives|loved ones|everyone|couple|parents|seniors|elderly|pet/i
+const VALID_REGION = /alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|united states|usa|canada|australia|uk|mexico|new zealand|germany|france|spain|italy|japan|brazil|india|philippines|puerto rico|district of columbia|miami|houston|chicago|dallas|phoenix|seattle|denver|boston|atlanta|portland|angeles|south|north|east|west|coast|midwest/i
+
+function sanitizeProfile(raw) {
+  if (!raw || typeof raw !== 'object') return emptyProfile
+  return {
+    preparingFor: VALID_PREPARING.test(raw.preparingFor || '') ? raw.preparingFor : '',
+    concern:      VALID_CONCERNS.test(raw.concern || '')      ? raw.concern      : '',
+    region:       VALID_REGION.test(raw.region || '')         ? raw.region       : '',
+  }
 }
 
 const starterPrompts = [
@@ -130,7 +145,7 @@ const GEO_CARDS = [
     desc: 'A locally tailored checklist to help your household prepare for the most common emergencies in your region.',
   },
   {
-    icon: (
+    icon: ( 
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
@@ -153,31 +168,82 @@ const GEO_CARDS = [
 ]
 
 export default function Home() {
+  const [searchParams] = useSearchParams()
   const [selectedRegion, setSelectedRegion] = useState(geoRegions[0])
-  const [isChatActive, setIsChatActive] = useState(false)
-  const [messages, setMessages] = useState([])
+
+  // Persistent session ID — ties all chat messages and the guide to one MongoDB document
+  const sessionId = useState(() => {
+    try {
+      let id = sessionStorage.getItem('yse_session_id')
+      if (!id) {
+        id = crypto.randomUUID()
+        sessionStorage.setItem('yse_session_id', id)
+      }
+      return id
+    } catch { return '' }
+  })[0]
+
+  // Restore chat from sessionStorage on mount
+  const [isChatActive, setIsChatActive] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('yse_chatActive') || 'false') } catch { return false }
+  })
+  const [messages, setMessages] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('yse_messages') || '[]') } catch { return [] }
+  })
+  const [profile, setProfile] = useState(() => {
+    try { return sanitizeProfile(JSON.parse(sessionStorage.getItem('yse_profile') || 'null')) } catch { return emptyProfile }
+  })
+  const [readyForEmail, setReadyForEmail] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('yse_readyForEmail') || 'false') } catch { return false }
+  })
+
+  // confirmedProfile is only populated after the AI finishes analyzing and delivers the summary.
+  // It drives the Expert's Notes panel — stays blank during Q&A.
+  const [confirmedProfile, setConfirmedProfile] = useState(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem('yse_readyForEmail') || 'false')
+      if (!stored) return emptyProfile
+      const p = sanitizeProfile(JSON.parse(sessionStorage.getItem('yse_profile') || 'null'))
+      // Only restore if all 3 fields are present — reject partial profiles
+      return (p.preparingFor && p.concern && p.region) ? p : emptyProfile
+    } catch { return emptyProfile }
+  })
+
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const [profile, setProfile] = useState(emptyProfile)
-  const [readyForEmail, setReadyForEmail] = useState(false)
   const [email, setEmail] = useState('')
   const [emailStatus, setEmailStatus] = useState('idle')
   const [emailValid, setEmailValid] = useState(false)
   const chatEndRef = useRef(null)
   const chatSectionRef = useRef(null)
 
+  // Persist chat state to sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('yse_chatActive', JSON.stringify(isChatActive)) } catch {}
+  }, [isChatActive])
+  useEffect(() => {
+    try { sessionStorage.setItem('yse_messages', JSON.stringify(messages)) } catch {}
+  }, [messages])
+  useEffect(() => {
+    try { sessionStorage.setItem('yse_profile', JSON.stringify(profile)) } catch {}
+  }, [profile])
+  useEffect(() => {
+    try { sessionStorage.setItem('yse_readyForEmail', JSON.stringify(readyForEmail)) } catch {}
+  }, [readyForEmail])
+
+  // Expert's Notes uses confirmedProfile — only filled after AI analysis is complete
   const profileSummary = useMemo(() => {
     return [
-      { label: 'Preparing for', value: profile.preparingFor || 'Not shared yet' },
-      { label: 'Primary concern', value: profile.concern || 'Not shared yet' },
-      { label: 'Region', value: profile.region || 'Not shared yet' },
+      { label: 'Preparing for', value: confirmedProfile.preparingFor || 'Not shared yet' },
+      { label: 'Primary concern', value: confirmedProfile.concern || 'Not shared yet' },
+      { label: 'Region', value: confirmedProfile.region || 'Not shared yet' },
     ]
-  }, [profile])
+  }, [confirmedProfile])
 
   const completionCount = useMemo(() => {
-    return Object.values(profile).filter((value) => String(value).trim()).length
-  }, [profile])
+    return Object.values(confirmedProfile).filter((value) => String(value).trim()).length
+  }, [confirmedProfile])
 
   const completionPercent = Math.round((completionCount / 3) * 100)
 
@@ -207,6 +273,7 @@ export default function Home() {
   useSeo({
     title: seoTitle,
     description: seoDescription,
+    canonical: 'https://yoursurvivalexpert.ai/',
     jsonLd: [
       {
         '@context': 'https://schema.org',
@@ -221,6 +288,14 @@ export default function Home() {
         name: 'yoursurvivalexpert.ai',
         url: 'https://yoursurvivalexpert.ai',
         description: 'AI survival expert and emergency checklist generator for households and individuals.',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: 'https://yoursurvivalexpert.ai/?startChat=1',
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
       {
         '@context': 'https://schema.org',
@@ -229,6 +304,39 @@ export default function Home() {
         areaServed: `${selectedRegion.city}, ${selectedRegion.state}`,
         description: `Personalized emergency readiness guidance for ${selectedRegion.name}.`,
         url: 'https://yoursurvivalexpert.ai',
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'HowTo',
+        name: 'How to Get Your Personalized Emergency Survival Guide',
+        description: 'Chat with an AI survival expert to receive a free, personalized PDF emergency preparedness guide tailored to your household and region.',
+        totalTime: 'PT2M',
+        supply: [
+          { '@type': 'HowToSupply', name: 'Your location or region' },
+          { '@type': 'HowToSupply', name: 'Your primary emergency concern (hurricane, wildfire, etc.)' },
+          { '@type': 'HowToSupply', name: 'Number of people in your household' },
+        ],
+        step: HOW_IT_WORKS.map((s, i) => ({
+          '@type': 'HowToStep',
+          position: i + 1,
+          name: s.title,
+          text: s.desc,
+          url: `https://yoursurvivalexpert.ai/#chat`,
+        })),
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: `Emergency Preparedness Guide for ${selectedRegion.name}`,
+        description: seoDescription,
+        author: { '@type': 'Organization', name: 'yoursurvivalexpert.ai' },
+        publisher: {
+          '@type': 'Organization',
+          name: 'yoursurvivalexpert.ai',
+          url: 'https://yoursurvivalexpert.ai',
+        },
+        mainEntityOfPage: { '@type': 'WebPage', '@id': 'https://yoursurvivalexpert.ai/' },
+        about: selectedRegion.hazards.map((h) => ({ '@type': 'Thing', name: h })),
       },
       {
         '@context': 'https://schema.org',
@@ -258,6 +366,22 @@ export default function Home() {
               text: `Yes. The guide accounts for common risks in ${selectedRegion.name} and the situations you care about most.`,
             },
           },
+          {
+            '@type': 'Question',
+            name: 'Is the survival guide really free?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes. The personalized PDF emergency guide is completely free. No account or payment required.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'How long does it take to get my guide?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'The chat takes about 2 minutes. Your personalized PDF guide is delivered to your inbox shortly after you provide your email.',
+            },
+          },
         ],
       },
     ],
@@ -273,9 +397,7 @@ export default function Home() {
   }, [messages, isLoading, isChatActive])
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const shouldStartChat = params.get('startChat') === '1'
-    if (!shouldStartChat) return
+    if (searchParams.get('startChat') !== '1') return
 
     setIsChatActive(true)
     setMessages((current) =>
@@ -284,8 +406,8 @@ export default function Home() {
 
     setTimeout(() => {
       chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }, 0)
-  }, [])
+    }, 100)
+  }, [searchParams])
 
   const activateChat = () => {
     setIsChatActive(true)
@@ -321,26 +443,73 @@ export default function Home() {
     setInput('')
     setIsLoading(true)
 
+    // Add a blank streaming placeholder so the user sees the bubble appear immediately
+    setMessages((current) => [...current, { role: 'assistant', content: '', _streaming: true }])
+
     try {
-      const response = await fetch(`https://yoursurvivalexpertai-1.onrender.com/chat`, {
+      const response = await fetch(`/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages, profile }),
+        body: JSON.stringify({ messages: updatedMessages, profile, session_id: sessionId }),
       })
-      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(data?.error || 'Unable to reach the survival expert.')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData?.error || errData?.detail || 'Unable to reach the survival expert.')
       }
 
-      setMessages((current) => [...current, { role: 'assistant', content: data.reply }])
-      setProfile(data.profile || profile)
-      setReadyForEmail(Boolean(data.readyForEmail))
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const raw = decoder.decode(value, { stream: true })
+        // SSE lines: "data: {...}\n\n"
+        for (const line of raw.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            if (event.type === 'chunk') {
+              accumulated += event.text
+              setMessages((current) => {
+                const prev = [...current]
+                prev[prev.length - 1] = { role: 'assistant', content: accumulated, _streaming: true }
+                return prev
+              })
+            } else if (event.type === 'done') {
+              const sanitized = sanitizeProfile(event.profile || profile)
+              setProfile(sanitized)
+              if (event.readyForEmail) {
+                setConfirmedProfile(sanitized)
+              }
+              setReadyForEmail(Boolean(event.readyForEmail))
+              // Remove the _streaming flag from the final message
+              setMessages((current) => {
+                const prev = [...current]
+                prev[prev.length - 1] = { role: 'assistant', content: accumulated }
+                return prev
+              })
+            }
+          } catch {
+            // malformed SSE line — skip
+          }
+        }
+      }
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
-      setMessages((current) => [
-        ...current,
-        { role: 'assistant', content: 'Sorry, I hit a snag. Please try again in a moment.' },
-      ])
+      setMessages((current) => {
+        const prev = [...current]
+        // Replace the streaming placeholder with an error message
+        if (prev[prev.length - 1]?._streaming) {
+          prev[prev.length - 1] = { role: 'assistant', content: 'Sorry, I hit a snag. Please try again in a moment.' }
+        } else {
+          prev.push({ role: 'assistant', content: 'Sorry, I hit a snag. Please try again in a moment.' })
+        }
+        return prev
+      })
     } finally {
       setIsLoading(false)
     }
@@ -356,10 +525,10 @@ export default function Home() {
     setError('')
     setEmailStatus('sending')
     try {
-      const response = await fetch(`https://yoursurvivalexpertai-1.onrender.com/guide`, {
+      const response = await fetch(`/api/guide`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, profile }),
+        body: JSON.stringify({ email, profile, session_id: sessionId }),
       })
       const data = await response.json()
       if (!response.ok) {
@@ -378,6 +547,25 @@ export default function Home() {
       setEmailStatus('idle')
       setError(err.message || 'Email delivery failed. Please try again.')
     }
+  }
+
+  const resetChat = () => {
+    setMessages([])
+    setProfile(emptyProfile)
+    setConfirmedProfile(emptyProfile)
+    setIsChatActive(false)
+    setReadyForEmail(false)
+    setEmail('')
+    setEmailStatus('idle')
+    setEmailValid(false)
+    setError('')
+    try {
+      sessionStorage.removeItem('yse_messages')
+      sessionStorage.removeItem('yse_profile')
+      sessionStorage.removeItem('yse_chatActive')
+      sessionStorage.removeItem('yse_readyForEmail')
+      sessionStorage.removeItem('yse_session_id')
+    } catch {}
   }
 
   const [faqOpen, setFaqOpen] = useState([false, false, false])
@@ -438,47 +626,14 @@ export default function Home() {
 
             {/* Right column — chatbot preview */}
             <div className="hero-right">
-              <div className="hero-chat-preview">
-                <div className="hero-chat-header">
-                  <div className="hero-chat-avatar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#19c37d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="hero-chat-name">Survival Expert AI</p>
-                    <p className="hero-chat-status">
-                      <span className="hero-chat-dot" />
-                      Online now
-                    </p>
-                  </div>
-                </div>
-
-                <div className="hero-chat-body">
-                  <div className="hero-msg assistant">
-                    Hi! What situation are you preparing for — hurricane, wildfire, power outage, or something else?
-                  </div>
-                  <div className="hero-msg user">
-                    We're in Florida and worried about hurricane season.
-                  </div>
-                  <div className="hero-msg assistant">
-                    Got it. I'll build a personalized hurricane plan for your household. How many people are you preparing for?
-                  </div>
-                  <div className="hero-msg-typing">
-                    <span /><span /><span />
-                  </div>
-                </div>
-
-                <div className="hero-chat-input-bar">
-                  <span className="hero-chat-placeholder">Type your response...</span>
-                  <button className="hero-chat-send" aria-label="Send" onClick={activateChat}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13" />
-                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+              <ChatPreview
+                messages={[
+                  { role: 'assistant', text: 'Hi! What situation are you preparing for — hurricane, wildfire, power outage, or something else?' },
+                  { role: 'user', text: "We're in Florida and worried about hurricane season." },
+                  { role: 'assistant', text: "Got it. I'll build a personalized hurricane plan for your household. How many people are you preparing for?" },
+                ]}
+                onActivate={activateChat}
+              />
             </div>
 
           </div>
@@ -634,10 +789,23 @@ export default function Home() {
                   </div>
                   <div className="chat-status">
                     <span className="status-dot" />
-                    <span>Expert is ready</span>
-                    <span className="status-divider">·</span>
-                    <span className="status-private">Session stays private</span>
+                    <div className="chat-status-info">
+                      <span className="chat-status-site">yoursurvivalexpert.ai</span>
+                      
+                    </div>
                   </div>
+                  <button
+                    className="chat-restart-btn"
+                    type="button"
+                    title="Start a new chat"
+                    onClick={resetChat}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="1 4 1 10 7 10" />
+                      <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
+                    </svg>
+                    New chat
+                  </button>
                 </div>
 
                 <div className="chat-feed" aria-live="polite">
@@ -652,7 +820,21 @@ export default function Home() {
                           key={`${message.role}-${index}`}
                           className={`openai-chat-bubble ${isAssistant ? 'assistant' : 'user'}`}
                         >
-                          {isAssistant ? <ChatMessage content={text} /> : text}
+                          <div className="bubble-avatar">
+                            {isAssistant ? (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+                              </svg>
+                            ) : (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="bubble-content">
+                            {isAssistant ? <ChatMessage content={text} /> : text}
+                          </div>
                         </div>
                       )
                     })}
@@ -695,7 +877,7 @@ export default function Home() {
                           placeholder="your@email.com"
                           value={email}
                           onChange={handleEmailChange}
-                          disabled={emailStatus === 'sent'}
+                          disabled={emailStatus === 'sending' || emailStatus === 'sent'}
                           required
                           className={email.length > 0 ? (emailValid ? 'valid' : 'invalid') : ''}
                         />
@@ -720,7 +902,12 @@ export default function Home() {
                       {emailStatus === 'sending' ? 'Sending...' : 'Send my guide'}
                     </button>
                     {emailStatus === 'sent' && (
-                      <p className="form-success">Guide sent. Check your inbox in a few minutes.</p>
+                      <div className="form-sent-row">
+                        <p className="form-success">Guide sent! Check your inbox in a few minutes.</p>
+                        <button type="button" className="reset-chat-btn" onClick={resetChat}>
+                          Start a new plan
+                        </button>
+                      </div>
                     )}
                   </form>
                 )}
@@ -848,6 +1035,42 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── CITY GUIDES ── */}
+        <section className="who-section" data-animate>
+          <div className="section-container">
+            <div className="section-header">
+              <h2 className="section-title">City-Specific Emergency Guides</h2>
+              <p className="section-sub">
+                Every region faces different threats. Browse our local preparedness guides for major U.S. cities.
+              </p>
+            </div>
+            <div className="city-guides-grid">
+              {[
+                { slug: 'houston-tx', city: 'Houston, TX', hazard: 'Hurricane & Flood' },
+                { slug: 'miami-fl', city: 'Miami, FL', hazard: 'Hurricane & Storm Surge' },
+                { slug: 'los-angeles-ca', city: 'Los Angeles, CA', hazard: 'Earthquake & Wildfire' },
+                { slug: 'chicago-il', city: 'Chicago, IL', hazard: 'Winter Storms & Extreme Cold' },
+                { slug: 'denver-co', city: 'Denver, CO', hazard: 'Wildfire & Winter Storms' },
+              ].map((g) => (
+                <Link
+                  key={g.slug}
+                  to={`/guide/${g.slug}`}
+                  className="who-card city-guide-card"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div className="who-card-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                    </svg>
+                  </div>
+                  <h3 className="who-card-title" style={{ fontSize: '1rem' }}>{g.city}</h3>
+                  <p className="who-card-desc" style={{ fontSize: '0.85rem' }}>{g.hazard}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── FAQ ── */}
         <section className="faq-section" data-animate>
           <div className="faq-container">
@@ -857,7 +1080,12 @@ export default function Home() {
             <div className="faq-list">
               {faqData.map((item, idx) => (
                 <div key={item.question} className={`faq-item ${faqOpen[idx] ? 'open' : ''}`}>
-                  <button className="faq-question" onClick={() => handleFaqToggle(idx)}>
+                  <button
+                    className="faq-question"
+                    onClick={() => handleFaqToggle(idx)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFaqToggle(idx) } }}
+                    aria-expanded={faqOpen[idx]}
+                  >
                     <span>{item.question}</span>
                     <svg
                       className={`faq-icon ${faqOpen[idx] ? 'rotate' : ''}`}

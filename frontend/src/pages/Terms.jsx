@@ -145,7 +145,8 @@ export default function Terms() {
   useSeo({
     title: 'Terms of Service | yoursurvivalexpert.ai',
     description:
-      'Terms of service for yoursurvivalexpert.ai, outlining usage guidelines for the AI survival guide and checklist.',
+      'Terms of service for yoursurvivalexpert.ai — usage guidelines for the free AI-powered emergency survival guide and checklist platform.',
+    canonical: 'https://yoursurvivalexpert.ai/terms',
   })
 
   return (
