@@ -1409,8 +1409,10 @@ def guide(req: GuideRequest, request: Request):
             )
         # Sync lead to Maropost CRM (non-blocking, fails silently)
         sync_to_maropost(str(req.email), profile)
-        # Save lead + guide to MongoDB
-        db_upsert_session(session_id, {
+        # Save lead + guide to MongoDB — use session_id if present, else fall back to email as key
+        mongo_key = session_id or f"email:{str(req.email).lower()}"
+        logging.info(f"MongoDB guide save — session_id='{session_id}' key='{mongo_key}'")
+        db_upsert_session(mongo_key, {
             "email": str(req.email),
             "profile": profile,
             "guide_text": text,
