@@ -975,6 +975,50 @@ html, body {
   flex-shrink: 0;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chat-expand-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(25, 195, 125, 0.07);
+}
+
+/* Expanded chat layout — takes full width, hides Expert's Notes panel */
+.chat-layout-expanded {
+  grid-template-columns: 1fr;
+}
+
+.chat-layout-expanded .expert-notes-panel {
+  display: none;
+}
+
+.chat-layout-expanded .chat-feed {
+  max-height: 520px;
+}
+
+.chat-layout-expanded .chat-card {
+  max-width: 100%;
+}
+
 /* Chat feed */
 .chat-feed {
   max-height: 340px;

@@ -217,6 +217,7 @@ export default function Home() {
   const [emailValid, setEmailValid] = useState(false)
   const chatEndRef = useRef(null)
   const chatSectionRef = useRef(null)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // Persist chat state to sessionStorage
   useEffect(() => {
@@ -765,7 +766,7 @@ export default function Home() {
           )}
 
           {isChatActive && (
-            <div className="chat-layout">
+            <div className={`chat-layout${isExpanded ? ' chat-layout-expanded' : ''}`}>
               <div className="chat-card">
 
                 <div className="chat-card-header">
@@ -794,18 +795,42 @@ export default function Home() {
                       
                     </div>
                   </div>
-                  <button
-                    className="chat-restart-btn"
-                    type="button"
-                    title="Start a new chat"
-                    onClick={resetChat}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
-                    </svg>
-                    New chat
-                  </button>
+                  <div className="chat-header-actions">
+                    <button
+                      className="chat-expand-btn"
+                      type="button"
+                      title={isExpanded ? 'Collapse chat' : 'Expand chat'}
+                      onClick={() => setIsExpanded((v) => !v)}
+                    >
+                      {isExpanded ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="4 14 10 14 10 20" />
+                          <polyline points="20 10 14 10 14 4" />
+                          <line x1="10" y1="14" x2="3" y2="21" />
+                          <line x1="21" y1="3" x2="14" y2="10" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="15 3 21 3 21 9" />
+                          <polyline points="9 21 3 21 3 15" />
+                          <line x1="21" y1="3" x2="14" y2="10" />
+                          <line x1="3" y1="21" x2="10" y2="14" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      className="chat-restart-btn"
+                      type="button"
+                      title="Start a new chat"
+                      onClick={resetChat}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
+                      </svg>
+                      New chat
+                    </button>
+                  </div>
                 </div>
 
                 <div className="chat-feed" aria-live="polite">
