@@ -975,50 +975,6 @@ html, body {
   flex-shrink: 0;
 }
 
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.chat-expand-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-  flex-shrink: 0;
-}
-
-.chat-expand-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(25, 195, 125, 0.07);
-}
-
-/* Expanded chat layout — takes full width, hides Expert's Notes panel */
-.chat-layout-expanded {
-  grid-template-columns: 1fr;
-}
-
-.chat-layout-expanded .expert-notes-panel {
-  display: none;
-}
-
-.chat-layout-expanded .chat-feed {
-  max-height: 520px;
-}
-
-.chat-layout-expanded .chat-card {
-  max-width: 100%;
-}
-
 /* Chat feed */
 .chat-feed {
   max-height: 340px;
@@ -1060,6 +1016,159 @@ html, body {
   flex-direction: row-reverse;
   margin-left: auto;
 }
+
+/* ── Exit Intent Popup ───────────────────────────────────────────────── */
+.exit-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.exit-popup {
+  background: #0d1829;
+  border: 1px solid rgba(25, 195, 125, 0.25);
+  border-radius: 20px;
+  padding: 40px 36px 32px;
+  max-width: 480px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.25s ease;
+  text-align: center;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.exit-popup-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: color 0.2s;
+}
+.exit-popup-close:hover { color: var(--text-primary); }
+
+.exit-popup-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(25, 195, 125, 0.12);
+  border: 1px solid rgba(25, 195, 125, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: var(--accent);
+}
+
+.exit-popup-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+
+.exit-popup-desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.exit-popup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exit-popup-input {
+  width: 100%;
+  padding: 13px 16px;
+  background: #0a1526;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.exit-popup-input:focus { border-color: var(--accent); }
+.exit-popup-input::placeholder { color: var(--text-muted); }
+
+.exit-popup-btn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+.exit-popup-btn:hover:not(:disabled) { background: var(--accent-dark); }
+.exit-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.exit-popup-skip {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-top: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.exit-popup-skip:hover { color: var(--text-secondary); }
+
+.exit-popup-error {
+  color: #f87171;
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+.exit-popup-success h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.exit-popup-success p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.exit-popup-dismiss {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 9px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: border-color 0.2s, color 0.2s;
+}
+.exit-popup-dismiss:hover { border-color: var(--accent); color: var(--accent); }
 
 .bubble-avatar {
   flex-shrink: 0;

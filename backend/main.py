@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from reportlab.lib.pagesizes import letter
@@ -22,13 +22,6 @@ from reportlab.lib.units import inch
 from reportlab.lib.utils import simpleSplit
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
-
-try:
-    from pymongo import MongoClient, ASCENDING
-    from pymongo.errors import PyMongoError
-    _pymongo_available = True
-except ImportError:
-    _pymongo_available = False
 
 
 # -------------------------------------------------
@@ -79,73 +72,8 @@ MAROPOST_API_KEY = os.getenv("MAROPOST_API_KEY")
 MAROPOST_ACCOUNT_ID = os.getenv("MAROPOST_ACCOUNT_ID", "1044")
 MAROPOST_LIST_ID = os.getenv("MAROPOST_LIST_ID", "306")
 MAROPOST_TAG_ID = os.getenv("MAROPOST_TAG_ID", "3078")
-MONGODB_URI = os.getenv("MONGODB_URI", "")
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-
-# -------------------------------------------------
-# MongoDB setup
-# -------------------------------------------------
-_mongo_client = None
-_mongo_db = None
-_sessions_col = None
-
-def _init_mongo():
-    global _mongo_client, _mongo_db, _sessions_col
-    if not _pymongo_available or not MONGODB_URI:
-        logging.warning("MongoDB not configured — session logging disabled.")
-        return
-    try:
-        _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        _mongo_client.admin.command("ping")
-        _mongo_db = _mongo_client["yoursurvivalexpert"]
-        _sessions_col = _mongo_db["sessions"]
-        _sessions_col.create_index([("session_id", ASCENDING)], unique=True)
-        _sessions_col.create_index([("email", ASCENDING)])
-        _sessions_col.create_index([("created_at", ASCENDING)])
-        logging.info("MongoDB connected successfully.")
-    except Exception as e:
-        logging.warning(f"MongoDB connection failed: {e}. Session logging disabled.")
-        _sessions_col = None
-
-_init_mongo()
-
-
-def db_upsert_session(session_id: str, update_fields: dict) -> None:
-    """Upsert a session document — silently no-ops if MongoDB is unavailable."""
-    if _sessions_col is None or not session_id:
-        return
-    try:
-        now = datetime.now(timezone.utc)
-        _sessions_col.update_one(
-            {"session_id": session_id},
-            {
-                "$set": {**update_fields, "updated_at": now},
-                "$setOnInsert": {"session_id": session_id, "created_at": now},
-            },
-            upsert=True,
-        )
-    except Exception as e:
-        logging.warning(f"MongoDB upsert error: {e}")
-
-
-def db_append_message(session_id: str, role: str, content: str) -> None:
-    """Append a single chat message to the session's conversation array."""
-    if _sessions_col is None or not session_id:
-        return
-    try:
-        now = datetime.now(timezone.utc)
-        _sessions_col.update_one(
-            {"session_id": session_id},
-            {
-                "$push": {"conversation": {"role": role, "content": content, "ts": now}},
-                "$set": {"updated_at": now},
-                "$setOnInsert": {"session_id": session_id, "created_at": now},
-            },
-            upsert=True,
-        )
-    except Exception as e:
-        logging.warning(f"MongoDB append error: {e}")
 
 # GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 # GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE")
@@ -157,11 +85,6 @@ ALLOWED_ORIGINS = [
     "https://yoursurvivalexpert.ai",
     "https://www.yoursurvivalexpert.ai",
     "http://localhost:5173",   # Vite dev
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "http://localhost:5177",
-    "http://localhost:5178",
     "http://localhost:3000",
 ]
 
@@ -227,8 +150,7 @@ CHAT_PROMPT = (
     "- Never repeat a question already answered.\n"
     "- Never provide detailed survival advice until the profile is complete.\n"
     "- Do not generate checklists, headers, or long responses during profile collection.\n"
-    "- Do NOT use fear-based language.\n"
-    "- TYPO TOLERANCE: If the user provides a location with an obvious typo or misspelling (e.g. 'coloradp', 'flordia', 'texass'), silently interpret it as the correct location. NEVER ask for confirmation or mention the typo. Just proceed as if they typed it correctly.\n\n"
+    "- Do NOT use fear-based language.\n\n"
 
     "PHASE 2 — DETAILED ADVICE (when all fields are collected and user asks follow-up questions):\n"
     "- Give DETAILED, FORMATTED responses using markdown-style structure.\n"
@@ -246,23 +168,10 @@ CHAT_PROMPT = (
     "- concern (type of emergency)\n"
     "- region (country or general location)\n\n"
 
-    "When all 3 fields are collected, deliver a structured summary response in this EXACT format:\n\n"
-
-    "## Your [concern] Survival Summary — [region]\n"
-    "[One sentence: who this is for, what threat, where. Tone: calm, empowering.]\n\n"
-
-    "### Immediate Priorities\n"
-    "[3-5 numbered action items specific to their region and concern. Each item is 1-2 sentences. Be concrete — no vague advice.]\n\n"
-
-    "### Critical Supplies to Get First\n"
-    "[A short bullet list of 5-7 the most important supplies for their specific emergency type. Include realistic quantities where relevant.]\n\n"
-
-    "### What to Do Right Now\n"
-    "[2-3 sentences: the single most important thing they can do TODAY to start preparing for their specific situation.]\n\n"
-
-    "---\n"
-    "End with EXACTLY this closing block on its own line — do not change the wording:\n"
-    "📋 **This is your summary.** Your full personalized PDF guide includes a complete supply checklist, step-by-step action plan, 72-hour emergency timeline, and local resources for [region]. Enter your email below and I'll send it to you — free."
+    "When all 3 fields are collected:\n"
+    "Briefly summarize what the user is preparing for in 1 sentence.\n"
+    "Then say EXACTLY:\n"
+    "Ready for your personalized survival guide? Reply with your email address and I'll send it to you."
 )
 
 GUIDE_PROMPT = (
@@ -340,7 +249,6 @@ SITE_CONTEXT = (
 )
 
 READY_NETWORK_URL = "https://thereadynetwork.us/?s=Creating+Your+Family+Emergency+Plan"
-_ready_network_cache: Optional[str] = None
 
 # -------------------------------------------------
 # Models
@@ -371,7 +279,6 @@ class ProfileModel(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message] = []
     profile: ProfileModel = ProfileModel()
-    session_id: Optional[str] = Field(default="", max_length=64)
 
     @field_validator("messages", mode="before")
     @classmethod
@@ -383,7 +290,6 @@ class ChatRequest(BaseModel):
 class GuideRequest(BaseModel):
     email: EmailStr
     profile: ProfileModel = ProfileModel()
-    session_id: Optional[str] = Field(default="", max_length=64)
 
 # -------------------------------------------------
 # Helpers
@@ -428,6 +334,153 @@ def is_off_topic_message(message: str) -> bool:
     return has_off_topic and not has_survival
 
 
+def extract_profile_from_message(profile: Dict[str, str], message: Optional[str]) -> Dict[str, str]:
+    if not message:
+        return profile
+
+    # Don't extract profile data from off-topic messages
+    if is_off_topic_message(message):
+        return profile
+
+    updated = profile.copy()
+    lower = message.lower()
+    is_question = "?" in message
+    greeting_terms = {
+        "hi",
+        "hello",
+        "hey",
+        "yo",
+        "thanks",
+        "thank you",
+        "ok",
+        "okay",
+    }
+
+    # Helper: detect if message is a "who are you preparing for" answer
+    # Uses both exact words and fuzzy prefix matching for common typos
+    def _looks_like_household(text: str) -> bool:
+        if re.search(r"\b(family|kids|children|household|partner|spouse|relatives|loved ones|everyone)\b", text):
+            return True
+        # Fuzzy prefix: catches "householf", "familly", "childs", etc.
+        if re.search(r"\b(househo|famil|childre|kid[sz]?)\w*", text):
+            return True
+        return False
+
+    def _looks_like_self(text: str) -> bool:
+        return bool(re.search(
+            r"\b(myself|just me|solo|single|only me|for me|preparing for myself|it.?s just me|"
+            r"my[s]elf|me only|just myself)\b",
+            text,
+        ))
+
+    if not updated["preparingFor"]:
+        if _looks_like_household(lower):
+            updated["preparingFor"] = "Family or household"
+        elif _looks_like_self(lower):
+            updated["preparingFor"] = "Myself"
+
+    if not updated["concern"]:
+        # First: try to extract a specific emergency type keyword from the message
+        concern_pattern = re.search(
+            r"\b(hurri?cane|tornado|wildfire|fire|earthquake|flood|flooding|"
+            r"power outage|power outages|blackout|blackouts|grid failure|"
+            r"gas shortage|gas crisis|fuel shortage|fuel crisis|"
+            r"water shortage|water crisis|water outage|"
+            r"winter storm|snowstorm|blizzard|ice storm|"
+            r"heat wave|extreme heat|drought|"
+            r"supply chain|supply shortage|supply disruption|"
+            r"pandemic|disease outbreak|civil unrest|evacuation|"
+            r"tsunami|landslide|mudslide|volcano|volcanic eruption|nuclear)\b",
+            lower,
+        )
+        if concern_pattern:
+            # Normalize common misspellings
+            matched = concern_pattern.group(1)
+            matched = re.sub(r"^hurri?cane$", "Hurricane", matched, flags=re.IGNORECASE) or matched.title()
+            updated["concern"] = matched if matched == "Hurricane" else concern_pattern.group(1).title()
+        else:
+            # Fallback: capture short non-question messages as free-text concern
+            # Exclude words that describe who is preparing (preparingFor field)
+            is_who_word = re.search(
+                r"\b(family|kids|children|household|partner|spouse|myself|self|solo|single|only me|just me|for me)\b",
+                lower,
+            )
+            # Exclude messages that look like place/location names (likely a region answer)
+            looks_like_location = re.search(
+                r"\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|"
+                r"delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|"
+                r"kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|"
+                r"mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|"
+                r"new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|"
+                r"pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|"
+                r"utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|"
+                r"united states|usa|canada|australia|uk|mexico|new zealand|"
+                r"angeles|miami|houston|chicago|dallas|phoenix|philadelphia|seattle|"
+                r"denver|boston|atlanta|portland|city|county|state|province|country)\b",
+                lower,
+            )
+            cleaned = re.sub(r"[^a-z\s-]", "", lower).strip()
+            has_generic_question = re.search(r"\b(what|which|choices|options)\b", lower)
+            if (3 <= len(cleaned) <= 40 and not is_question and not has_generic_question
+                    and not is_who_word and not looks_like_location):
+                updated["concern"] = message.strip()
+
+    # Keywords that indicate the message is about an emergency type, NOT a location
+    emergency_keywords = re.compile(
+        r"\b(hurricane|tornado|wildfire|fire|earthquake|flood|storm|outage|power|gas|fuel|"
+        r"water|shortage|crisis|pandemic|winter|heat|drought|supply|disruption|evacuation|"
+        r"prepare|preparing|preparedness|emergency|disaster|want|need|worried|concern|"
+        r"i want|i need|i am|i'm|we are|we're|our|my|plan|planning)\b"
+    )
+
+    # Helper: detect if a value looks like a household/who word (catches typos)
+    def _is_household_like(text: str) -> bool:
+        return bool(re.search(
+            r"\b(family|kids|children|household|partner|spouse|relatives|loved ones|everyone|"
+            r"myself|self|solo|single|only me|just me|beginner|intermediate|advanced)\b"
+            r"|househo|famil|childre",
+            text,
+        ))
+
+    # If region was previously set to a household-like typo, clear it so it can be replaced
+    if updated["region"] and _is_household_like(updated["region"].lower()):
+        updated["region"] = ""
+
+    if not updated["region"]:
+        # Explicit "in/from/near <place>" pattern — highest confidence
+        region_match = re.search(r"\b(?:in|from|near|located in|living in|based in)\s+([A-Za-z\s]{2,40})", message, re.IGNORECASE)
+        if region_match:
+            candidate = region_match.group(1).strip()
+            if not emergency_keywords.search(candidate.lower()) and not _is_household_like(candidate.lower()):
+                updated["region"] = candidate
+
+    if not updated["region"]:
+        normalized = re.sub(r"[^a-z\s]", "", lower).strip()
+        common_regions = {
+            "us": "United States",
+            "usa": "United States",
+            "united states": "United States",
+            "united states of america": "United States",
+            "uk": "United Kingdom",
+            "united kingdom": "United Kingdom",
+            "canada": "Canada",
+            "australia": "Australia",
+            "mexico": "Mexico",
+            "new zealand": "New Zealand",
+        }
+        if normalized in common_regions:
+            updated["region"] = common_regions[normalized]
+        else:
+            is_short_region = 3 <= len(normalized) <= 30 and re.fullmatch(r"[a-z\s]+", normalized)
+            is_not_other_field = not _is_household_like(lower)
+            is_not_greeting = normalized not in greeting_terms
+            is_not_emergency = not emergency_keywords.search(lower)
+            word_count = len(normalized.split())
+            is_place_length = word_count <= 4
+            if is_short_region and is_not_other_field and is_not_greeting and is_not_emergency and is_place_length:
+                updated["region"] = message.strip()
+
+    return updated
 
 
 def is_valid_profile(profile: Dict[str, str]) -> bool:
@@ -500,196 +553,20 @@ def build_chat_reply(profile: Dict[str, str], missing: List[str]) -> str:
     return dict(QUESTION_ORDER)[missing[0]]
 
 
-PROFILE_EXTRACT_PROMPT = (
-    "You are a strict data extraction assistant. Analyze the conversation and extract the user's emergency preparedness profile.\n"
-    "Return ONLY a valid JSON object with exactly these three keys:\n\n"
-
-    "CRITICAL RULE: Only extract values from USER messages. Values mentioned in ASSISTANT messages (e.g., example emergencies listed in a question) must NEVER be used to fill any field. "
-    "If the assistant asks 'are you preparing for a hurricane, wildfire, or power outage?' and the user has not answered yet, leave concern empty.\n\n"
-
-    "  preparingFor — ONLY fill this if the USER explicitly stated who they are preparing for.\n"
-    "    Valid values: words like 'myself', 'just me', 'household', 'family', 'my kids', 'wife and kids', 'family of 4', etc.\n"
-    "    Leave empty if the user has not clearly said who they are preparing for.\n\n"
-
-    "  concern — ONLY fill this if the USER explicitly named a real emergency, disaster, or survival scenario in their own message.\n"
-    "    Valid values MUST be a recognizable emergency type such as: hurricane, power outage, wildfire, earthquake, flood, tornado,\n"
-    "    winter storm, blizzard, tsunami, drought, pandemic, civil unrest, nuclear, evacuation, blackout, etc.\n"
-    "    INVALID: greetings (hi, hey, hello), vague words (bad, stuff, things), questions, or anything from an ASSISTANT message.\n"
-    "    Leave empty if the user has not clearly named a disaster or emergency type in their own words.\n\n"
-
-    "  region — ONLY fill this if the USER explicitly stated a real geographic location (city, state, country, or region).\n"
-    "    If the user typed a misspelling or typo, silently correct it to the proper place name.\n"
-    "    INVALID values: greetings, emergency types, household words, or anything that is not a place name.\n"
-    "    Leave empty if the user has not clearly stated a location.\n\n"
-
-    "Global rules:\n"
-    "- Be STRICT. Only extract a field if you are confident the USER intended to provide that information.\n"
-    "- Greetings (hi, hey, hello, thanks, ok) must NEVER be stored in any field.\n"
-    "- Words from ASSISTANT messages must NEVER fill any field.\n"
-    "- Preserve already-filled fields from the existing profile — never overwrite with empty or invalid data.\n"
-    "- Return ONLY the JSON object — no explanation, no extra text."
-)
-
-
-# ── Post-extraction validators — Python-level safety net ─────────────────────
-_GREETINGS = {"hi", "hey", "hello", "yo", "sup", "ok", "okay", "thanks", "thank you",
-              "yes", "no", "sure", "nope", "yep", "yeah", "nah", "lol", "haha"}
-
-_VALID_CONCERNS = re.compile(
-    r"\b(hurricane|tornado|wildfire|wild fire|earthquake|flood|flooding|power outage|"
-    r"blackout|grid failure|winter storm|snowstorm|blizzard|ice storm|heat wave|drought|"
-    r"tsunami|landslide|mudslide|volcano|volcanic|nuclear|pandemic|disease|civil unrest|"
-    r"evacuation|shelter|water shortage|supply chain|fire|storm|outage|emergency|disaster)\b",
-    re.IGNORECASE,
-)
-
-_VALID_PREPARING = re.compile(
-    r"\b(myself|self|just me|solo|family|household|kids|children|partner|spouse|wife|husband|"
-    r"relatives|loved ones|everyone|people|us|we|couple|parents|seniors|elderly|pets?)\b",
-    re.IGNORECASE,
-)
-
-_VALID_REGION = re.compile(
-    r"\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|"
-    r"georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|"
-    r"massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|"
-    r"new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|"
-    r"oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|"
-    r"vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia|"
-    r"puerto rico|guam|united states|usa|us|canada|australia|uk|united kingdom|mexico|"
-    r"new zealand|germany|france|spain|italy|japan|brazil|india|philippines|"
-    r"angeles|miami|houston|chicago|dallas|phoenix|seattle|denver|boston|atlanta|portland|"
-    r"city|county|state|province|coast|south|north|east|west|midwest|northeast|southeast|southwest)\b",
-    re.IGNORECASE,
-)
-
-
-def _validate_extracted(key: str, value: str) -> bool:
-    """Return True only if the extracted value is genuinely valid for its field."""
-    if not value or len(value.strip()) < 2:
-        return False
-    lower = value.strip().lower()
-    # Reject anything that is a greeting
-    if lower in _GREETINGS or all(w in _GREETINGS for w in lower.split()):
-        return False
-    if key == "concern":
-        return bool(_VALID_CONCERNS.search(lower))
-    if key == "preparingFor":
-        return bool(_VALID_PREPARING.search(lower))
-    if key == "region":
-        return bool(_VALID_REGION.search(lower))
-    return False
-
-
-def extract_profile_with_ai(conversation: List[Dict[str, str]], existing: Dict[str, str]) -> Dict[str, str]:
-    """Use a fast AI call to extract and correct profile fields from the conversation."""
-    if not openai_client:
-        return existing
-    try:
-        response = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": PROFILE_EXTRACT_PROMPT},
-                {"role": "user", "content": (
-                    f"Existing profile: {json.dumps(existing)}\n\n"
-                    f"Conversation:\n" +
-                    "\n".join(f"{m['role'].upper()}: {m['content']}" for m in conversation[-6:])
-                )},
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=80,
-            temperature=0,
-            timeout=15,
-        )
-        raw = response.choices[0].message.content.strip()
-        data = json.loads(raw)
-        # Start from a clean base — strip any invalid values already in existing
-        merged = {
-            key: (existing.get(key, "") if _validate_extracted(key, existing.get(key, "")) else "")
-            for key in ("preparingFor", "concern", "region")
-        }
-        for key in ("preparingFor", "concern", "region"):
-            val = str(data.get(key, "")).strip()
-            if val and _validate_extracted(key, val):
-                merged[key] = val
-        return merged
-    except Exception as e:
-        logging.warning(f"AI profile extraction error: {e}")
-        return existing
-
-
-def call_openai(messages: List[Dict[str, str]], max_tokens: Optional[int] = None) -> Optional[str]:
+def call_openai(messages: List[Dict[str, str]]) -> Optional[str]:
     if not openai_client:
         return None
     try:
-        kwargs = dict(model=OPENAI_MODEL, temperature=0.4, messages=messages, timeout=60)
-        if max_tokens:
-            kwargs["max_tokens"] = max_tokens
-        response = openai_client.chat.completions.create(**kwargs)
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            temperature=0.4,
+            messages=messages,
+            timeout=60
+        )
         return response.choices[0].message.content.strip()
     except Exception as e:
         logging.warning(f"OpenAI error: {e}")
         return None
-
-
-def _ai_asked_for_email(text: str) -> bool:
-    """Return True only if the AI's response explicitly asked the user for their email."""
-    lower = text.lower()
-    triggers = [
-        "enter your email",
-        "reply with your email",
-        "send it to you free",
-        "email below",
-        "i'll send it to you",
-        "send you the guide",
-        "this is your summary",
-        "full personalized pdf guide",
-    ]
-    return any(t in lower for t in triggers)
-
-
-def stream_openai_sse(messages: List[Dict[str, str]], profile: dict, profile_complete: bool, max_tokens: int = 500, fallback: str = "", session_id: str = ""):
-    """Yield SSE chunks from OpenAI streaming, then a final 'done' event with metadata.
-    readyForEmail is only True if the AI's actual response contained an email ask.
-    """
-    if not openai_client:
-        ready = profile_complete and _ai_asked_for_email(fallback)
-        yield f"data: {json.dumps({'type': 'chunk', 'text': fallback})}\n\n"
-        yield f"data: {json.dumps({'type': 'done', 'profile': profile, 'readyForEmail': ready})}\n\n"
-        return
-    full_text = ""
-    try:
-        stream = openai_client.chat.completions.create(
-            model=OPENAI_MODEL,
-            temperature=0.4,
-            messages=messages,
-            max_tokens=max_tokens,
-            stream=True,
-            timeout=30,
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                full_text += delta
-                yield f"data: {json.dumps({'type': 'chunk', 'text': delta})}\n\n"
-    except Exception as e:
-        logging.warning(f"OpenAI stream error: {e}")
-        if fallback:
-            full_text = fallback
-            yield f"data: {json.dumps({'type': 'chunk', 'text': fallback})}\n\n"
-    # Email form appears only after the AI has explicitly asked for it in this response
-    ready = profile_complete and _ai_asked_for_email(full_text)
-    # Log assistant reply to MongoDB
-    if full_text and session_id:
-        db_append_message(session_id, "assistant", full_text)
-        db_upsert_session(session_id, {"profile": profile})
-    yield f"data: {json.dumps({'type': 'done', 'profile': profile, 'readyForEmail': ready})}\n\n"
-
-
-def immediate_sse(reply: str, profile: dict, ready_for_email: bool):
-    """Wrap a non-OpenAI reply as a single SSE response (no streaming needed)."""
-    yield f"data: {json.dumps({'type': 'chunk', 'text': reply})}\n\n"
-    yield f"data: {json.dumps({'type': 'done', 'profile': profile, 'readyForEmail': ready_for_email})}\n\n"
 
 
 def fetch_guide_content_from_url(url: str) -> str:
@@ -728,11 +605,8 @@ def build_guide_text(profile: Dict[str, str]) -> str:
         "Start with essentials and expand gradually."
     )
 
-    # Fetch reference content from The Ready Network (cached after first call)
-    global _ready_network_cache
-    if _ready_network_cache is None:
-        _ready_network_cache = fetch_guide_content_from_url(READY_NETWORK_URL)
-    reference_content = _ready_network_cache
+    # Fetch reference content from The Ready Network
+    reference_content = fetch_guide_content_from_url(READY_NETWORK_URL)
     reference_section = f"\nReference material from The Ready Network:\n{reference_content}" if reference_content else ""
 
     messages = [
@@ -1287,104 +1161,161 @@ def chat(req: ChatRequest, request: Request):
     if not _check_rate_limit(f"chat:{client_ip}", RATE_LIMIT_CHAT):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
 
-    session_id = (req.session_id or "").strip()
-    user_agent = request.headers.get("user-agent", "")
-
     profile = normalize_profile(req.profile)
+    # Extract from all messages for context retention, but newest message takes priority
+    for m in req.messages[:-1]:
+        if m.role == "user":
+            profile = extract_profile_from_message(profile, m.content)
     latest_user = next((m for m in reversed(req.messages) if m.role == "user"), None)
+    if latest_user:
+        profile = extract_profile_from_message(profile, latest_user.content)
+    missing = get_missing_fields(profile)
     latest_text = latest_user.content if latest_user else ""
 
-    # Log the incoming user message to MongoDB
-    if latest_text and session_id:
-        db_append_message(session_id, "user", latest_text)
-        db_upsert_session(session_id, {
-            "ip": client_ip,
-            "user_agent": user_agent,
-            "profile": profile,
-        })
-
-    # AI-based profile extraction — understands natural language, typos, and context
-    conversation = [m.model_dump() for m in req.messages[-6:]]
-    profile = extract_profile_with_ai(conversation, profile)
-
-    missing = get_missing_fields(profile)
-    ready = is_valid_profile(profile)
+    # OVERRIDE: If user requests immediate supply list, skip profile questions
+    # immediate_phrases = [
+    #     "just give me now", "give me list", "give me supplies", "give me checklist", "give me items", "give me what to store", "just list", "just checklist", "just items", "just supplies"
+    # ]
+    def extract_numbered_list(text: str) -> str:
+        import re
+        lines = text.splitlines()
+        numbered_lines = [line.strip() for line in lines if re.match(r"^\d+\. ", line.strip())]
+        # If the model returns the list in a single paragraph, split by ' N. '
+        if not numbered_lines and re.search(r"\d+\. ", text):
+            numbered_lines = re.findall(r"\d+\. [^\n]+", text)
+        return "\n".join(numbered_lines)
 
     def extract_numbered_items(text: str) -> list[str]:
+        # Improved regex: splits items even if compressed, each on its own line
         items = re.findall(r"\d+\.\s.*?(?=\n?\d+\.|$)", text, re.S)
         return [item.strip() for item in items]
 
     def needs_supply_list(text: str) -> bool:
-        keywords = ["what should i store", "what should i prepare", "supply list", "emergency supplies",
-                    "give me list", "give me supplies", "checklist", "items to store", "items to prepare",
-                    "just give me now", "just list", "just checklist", "just items", "just supplies"]
+        keywords = ["what should i store", "what should i prepare", "supply list", "emergency supplies", "give me list", "give me supplies", "checklist", "items to store", "items to prepare", "just give me now", "just list", "just checklist", "just items", "just supplies"]
         return any(k in text.lower() for k in keywords)
 
-    # ── Supply list shortcut ──────────────────────────────────────────────────
     if latest_text and needs_supply_list(latest_text):
         if missing:
+            # Profile incomplete — don't generate supply list yet, ask for the next missing field
+            next_question = dict(QUESTION_ORDER)[missing[0]]
             field_labels = {"preparingFor": "who you're preparing for", "concern": "your primary concern", "region": "your region"}
             missing_labels = [field_labels.get(f, f) for f in missing]
-            reply = (
-                f"I want to give you the most accurate supply list possible — "
-                f"but I still need a couple of details first. "
-                f"Could you tell me {' and '.join(missing_labels)}?\n\n"
-                f"{dict(QUESTION_ORDER)[missing[0]]}"
-            )
-            return StreamingResponse(immediate_sse(reply, profile, False), media_type="text/event-stream")
-        print("[OpenAI] Calling OpenAI for supply list...")
+            return {
+                "reply": (
+                    f"I want to give you the most accurate supply list possible — "
+                    f"but I still need a couple of details first. "
+                    f"Could you tell me {' and '.join(missing_labels)}?\n\n"
+                    f"{next_question}"
+                ),
+                "profile": profile,
+                "readyForEmail": False,
+            }
+        print("[OpenAI] Calling OpenAI for supply list (reference-based)...")
         supply_list = build_supply_list(profile)
         items = extract_numbered_items(supply_list)
-        return StreamingResponse(immediate_sse("\n".join(items), profile, ready), media_type="text/event-stream")
+        return {
+            "reply": "\n".join(items),
+            "profile": profile,
+            "readyForEmail": is_valid_profile(profile),
+        }
 
-    # ── Email validation guard ───────────────────────────────────────────────
     if latest_text:
         email_candidate = detect_email_candidate(latest_text)
         if email_candidate and not validate_email(email_candidate):
-            next_question = dict(QUESTION_ORDER)[missing[0]] if missing else ""
+            next_question = dict(QUESTION_ORDER)[missing[0]] if missing else None
             extra = f" {next_question}" if next_question else ""
-            reply = (
-                f"'{email_candidate}' is not a valid email format. "
-                f"Please provide a correct email like name@example.com.{extra}"
-            )
-            return StreamingResponse(immediate_sse(reply, profile, not missing and ready), media_type="text/event-stream")
+            return {
+                "reply": (
+                    f"'{email_candidate}' is not a valid email format. "
+                    "Please provide a correct email like name@example.com."
+                    f"{extra}"
+                ),
+                "profile": profile,
+                "readyForEmail": not missing and is_valid_profile(profile),
+            }
 
     if latest_text:
         detected_email = detect_email_in_message(latest_text)
         if detected_email and missing:
-            reply = f"Thanks. I will collect your email after we finish your profile. {dict(QUESTION_ORDER)[missing[0]]}"
-            return StreamingResponse(immediate_sse(reply, profile, False), media_type="text/event-stream")
+            return {
+                "reply": (
+                    "Thanks. I will collect your email after we finish your profile. "
+                    f"{dict(QUESTION_ORDER)[missing[0]]}"
+                ),
+                "profile": profile,
+                "readyForEmail": False,
+            }
         if detected_email and not missing:
-            reply = "That email format looks valid. Please enter it in the email field below and click 'Send my guide'."
-            return StreamingResponse(immediate_sse(reply, profile, ready), media_type="text/event-stream")
+            return {
+                "reply": (
+                    "That email format looks valid. Please enter it in the email field below "
+                    "and click 'Send my guide'."
+                ),
+                "profile": profile,
+                "readyForEmail": is_valid_profile(profile),
+            }
 
-    # ── OpenAI call — always use CHAT_PROMPT ─────────────────────────────────
-    # CHAT_PROMPT already handles the "profile complete" case by asking for the email.
-    # GUIDE_PROMPT is only for the /api/guide PDF generation endpoint.
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                f"{CHAT_PROMPT}\n\nSite context:\n{SITE_CONTEXT}\n\n"
-                f"Known profile: {profile}\nMissing fields: {missing}"
-            ),
-        },
-        *[m.model_dump() for m in req.messages[-12:]],
-    ]
-    fallback = build_chat_reply(profile, missing)
-    print("[OpenAI] Streaming chat response...")
-    return StreamingResponse(
-        stream_openai_sse(messages, profile, profile_complete=ready, max_tokens=900, fallback=fallback, session_id=session_id),
-        media_type="text/event-stream",
-    )
+    # Switch prompt logic: if all profile fields are filled, use advice/guide mode
+    if not missing:
+        guide_messages = [
+            {
+                "role": "system",
+                "content": GUIDE_PROMPT,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Create a personalized survival preparedness guide.\n\n"
+                    f"Preparing for: {profile['preparingFor']}\n"
+                    f"Primary concern: {profile['concern']}\n"
+                    f"Region: {profile['region']}\n\n"
+                    "Generate a guide tailored to this situation."
+                )
+            },
+            *[m.dict() for m in req.messages[-12:]],
+        ]
+        print("[OpenAI] Calling OpenAI for advice/guide mode...")
+        ai_reply = call_openai(guide_messages)
+        reply = ai_reply or (
+            f"I have everything I need to build your personalized survival plan — "
+            f"wildfire preparedness for your household in {profile.get('region', 'your area')}. "
+            "Enter your email below and I'll send your custom PDF guide right away."
+            if is_valid_profile(profile) else
+            "I'm having a brief connection issue. Could you repeat your last message?"
+        )
+        return {
+            "reply": reply,
+            "profile": profile,
+            "readyForEmail": is_valid_profile(profile),
+        }
+    else:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"{CHAT_PROMPT}\n\nSite context:\n{SITE_CONTEXT}\n\n"
+                    f"Known profile: {profile}\nMissing: {missing}"
+                ),
+            },
+            *[m.dict() for m in req.messages[-12:]],
+        ]
+        print("[OpenAI] Calling OpenAI for chat endpoint...")
+        ai_reply = call_openai(messages)
+        if missing and ai_reply and re.search(r"\bemail\b", ai_reply, re.IGNORECASE):
+            reply = build_chat_reply(profile, missing)
+        else:
+            reply = ai_reply or build_chat_reply(profile, missing)
+        return {
+            "reply": reply,
+            "profile": profile,
+            "readyForEmail": not missing and is_valid_profile(profile),
+        }
 
 
 @app.post("/api/guide")
 @app.post("/guide")
 def guide(req: GuideRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
-    user_agent = request.headers.get("user-agent", "")
-    session_id = (req.session_id or "").strip()
 
     if not _check_rate_limit(f"guide:{client_ip}", RATE_LIMIT_GUIDE):
         raise HTTPException(status_code=429, detail="Too many guide requests. Please wait a few minutes.")
@@ -1409,17 +1340,6 @@ def guide(req: GuideRequest, request: Request):
             )
         # Sync lead to Maropost CRM (non-blocking, fails silently)
         sync_to_maropost(str(req.email), profile)
-        # Save lead + guide to MongoDB — use session_id if present, else fall back to email as key
-        mongo_key = session_id or f"email:{str(req.email).lower()}"
-        logging.info(f"MongoDB guide save — session_id='{session_id}' key='{mongo_key}'")
-        db_upsert_session(mongo_key, {
-            "email": str(req.email),
-            "profile": profile,
-            "guide_text": text,
-            "guide_sent_at": datetime.now(timezone.utc),
-            "ip": client_ip,
-            "user_agent": user_agent,
-        })
         return {"ok": True}
     except HTTPException:
         raise
@@ -1430,3 +1350,37 @@ def guide(req: GuideRequest, request: Request):
             status_code=500,
             content={"ok": False, "error": "Something went wrong generating your guide. Please try again."}
         )
+
+
+class LeadRequest(BaseModel):
+    email: EmailStr
+    session_id: Optional[str] = Field(default="", max_length=64)
+    source: Optional[str] = Field(default="", max_length=64)
+
+
+@app.post("/api/lead")
+@app.post("/lead")
+def capture_lead(req: LeadRequest, request: Request):
+    """Lightweight lead capture — saves email to MongoDB + Maropost without requiring a full profile."""
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+    session_id = (req.session_id or "").strip()
+    email_str = str(req.email)
+
+    try:
+        # Add to Maropost with minimal profile
+        sync_to_maropost(email_str, {})
+        # Save to MongoDB
+        mongo_key = session_id or f"email:{email_str.lower()}"
+        db_upsert_session(mongo_key, {
+            "email": email_str,
+            "lead_source": req.source or "exit_intent",
+            "ip": client_ip,
+            "user_agent": user_agent,
+            "lead_captured_at": datetime.now(timezone.utc),
+        })
+        logging.info(f"Lead captured: {email_str} source={req.source}")
+        return {"ok": True}
+    except Exception as e:
+        logging.error(f"Lead capture error: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "error": "Failed to save lead."})
