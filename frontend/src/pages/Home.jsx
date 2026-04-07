@@ -180,6 +180,26 @@ export default function Home() {
   const [emailValid, setEmailValid] = useState(false)
   const chatEndRef = useRef(null)
   const chatSectionRef = useRef(null)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Exit intent popup
+  const [exitPopupVisible, setExitPopupVisible] = useState(false)
+  const [exitEmail, setExitEmail] = useState('')
+  const [exitEmailValid, setExitEmailValid] = useState(false)
+  const [exitStatus, setExitStatus] = useState('idle')
+  const exitShownRef = useRef(false)
+
+  // Persistent session ID
+  const sessionId = useState(() => {
+    try {
+      let id = sessionStorage.getItem('yse_session_id')
+      if (!id) {
+        id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+        sessionStorage.setItem('yse_session_id', id)
+      }
+      return id
+    } catch { return '' }
+  })[0]
 
   // Persist chat state to sessionStorage
   useEffect(() => {
