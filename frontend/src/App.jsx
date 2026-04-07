@@ -10,6 +10,7 @@ function ScrollToTop() {
   return null
 }
 import About from './pages/About.jsx'
+import Admin from './pages/Admin.jsx'
 import BestGuide from './pages/BestGuide.jsx'
 import CityGuide from './pages/CityGuide.jsx'
 import Contact from './pages/Contact.jsx'
@@ -63,6 +64,7 @@ function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/guide/:citySlug" element={<CityGuide />} />
           <Route path="/best-emergency-preparedness-guide" element={<BestGuide />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

@@ -72,6 +72,7 @@ MAROPOST_API_KEY = os.getenv("MAROPOST_API_KEY")
 MAROPOST_ACCOUNT_ID = os.getenv("MAROPOST_ACCOUNT_ID", "1044")
 MAROPOST_LIST_ID = os.getenv("MAROPOST_LIST_ID", "306")
 MAROPOST_TAG_ID = os.getenv("MAROPOST_TAG_ID", "3078")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -1384,3 +1385,122 @@ def capture_lead(req: LeadRequest, request: Request):
     except Exception as e:
         logging.error(f"Lead capture error: {e}")
         return JSONResponse(status_code=500, content={"ok": False, "error": "Failed to save lead."})
+
+
+# -------------------------------------------------
+# Admin Dashboard Endpoints
+# -------------------------------------------------
+
+from fastapi import Header
+
+def _verify_admin(authorization: str = "") -> bool:
+    """Check Bearer token matches admin password."""
+    if not ADMIN_PASSWORD:
+        return False
+    token = authorization.replace("Bearer ", "").strip()
+    return token == ADMIN_PASSWORD
+
+
+@app.post("/api/admin/login")
+def admin_login(body: dict):
+    password = body.get("password", "")
+    if not ADMIN_PASSWORD or password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid password.")
+    return {"ok": True, "token": ADMIN_PASSWORD}
+
+
+@app.get("/api/admin/stats")
+def admin_stats(authorization: str = Header(default="")):
+    if not _verify_admin(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
+    if _sessions_col is None:
+        return {"error": "MongoDB not connected."}
+
+    total_sessions = _sessions_col.count_documents({})
+    total_emails = _sessions_col.count_documents({"email": {"$exists": True, "$ne": ""}})
+    total_guides = _sessions_col.count_documents({"guide_sent_at": {"$exists": True}})
+    total_leads = _sessions_col.count_documents({"lead_source": {"$exists": True}})
+
+    # Conversion rate: sessions that became email leads
+    conversion_rate = round((total_emails / total_sessions * 100), 1) if total_sessions else 0
+
+    # Top regions
+    region_pipeline = [
+        {"$match": {"profile.region": {"$exists": True, "$ne": ""}}},
+        {"$group": {"_id": "$profile.region", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 8},
+    ]
+    top_regions = [{"region": r["_id"], "count": r["count"]}
+                   for r in _sessions_col.aggregate(region_pipeline)]
+
+    # Top concerns
+    concern_pipeline = [
+        {"$match": {"profile.concern": {"$exists": True, "$ne": ""}}},
+        {"$group": {"_id": "$profile.concern", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 8},
+    ]
+    top_concerns = [{"concern": c["_id"], "count": c["count"]}
+                    for c in _sessions_col.aggregate(concern_pipeline)]
+
+    # Sessions per day (last 14 days)
+    from datetime import timedelta
+    daily_pipeline = [
+        {"$match": {"created_at": {"$gte": datetime.now(timezone.utc) - timedelta(days=14)}}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+            "sessions": {"$sum": 1},
+            "leads": {"$sum": {"$cond": [{"$ifNull": ["$email", False]}, 1, 0]}},
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    daily = list(_sessions_col.aggregate(daily_pipeline))
+
+    return {
+        "total_sessions": total_sessions,
+        "total_emails": total_emails,
+        "total_guides_sent": total_guides,
+        "total_exit_leads": total_leads,
+        "conversion_rate": conversion_rate,
+        "top_regions": top_regions,
+        "top_concerns": top_concerns,
+        "daily": daily,
+    }
+
+
+@app.get("/api/admin/sessions")
+def admin_sessions(
+    authorization: str = Header(default=""),
+    page: int = 1,
+    limit: int = 20,
+):
+    if not _verify_admin(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized.")
+    if _sessions_col is None:
+        return {"error": "MongoDB not connected."}
+
+    skip = (page - 1) * limit
+    total = _sessions_col.count_documents({})
+    docs = list(
+        _sessions_col.find(
+            {},
+            {"session_id": 1, "email": 1, "profile": 1, "ip": 1,
+             "user_agent": 1, "created_at": 1, "guide_sent_at": 1,
+             "lead_source": 1, "conversation": 1},
+        )
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+    )
+    # Serialize ObjectId and datetime
+    for doc in docs:
+        doc["_id"] = str(doc["_id"])
+        for k in ("created_at", "guide_sent_at", "lead_captured_at"):
+            if k in doc and doc[k]:
+                doc[k] = doc[k].isoformat()
+        if "conversation" in doc:
+            doc["message_count"] = len(doc["conversation"])
+            del doc["conversation"]
+
+    return {"total": total, "page": page, "limit": limit, "sessions": docs}
