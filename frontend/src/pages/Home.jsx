@@ -874,6 +874,45 @@ export default function Home() {
                         </button>
                       </div>
                     )}
+
+                    {emailStatus === 'sent' && (
+                      <div className="share-prompt">
+                        <p className="share-prompt-text">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'inline',verticalAlign:'middle',marginRight:'5px'}}>
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                          </svg>
+                          Know someone who should be prepared too?
+                        </p>
+                        <div className="share-btns">
+                          <a
+                            className="share-btn share-btn--sms"
+                            href={`sms:?body=I just got a free personalized emergency survival guide from yoursurvivalexpert.ai — you should get one too: https://yoursurvivalexpert.ai`}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Text a Friend
+                          </a>
+                          <a
+                            className="share-btn share-btn--email"
+                            href={`mailto:?subject=Free Emergency Survival Guide&body=Hey! I just got a free personalized emergency survival guide from yoursurvivalexpert.ai. It only takes 2 minutes and it's completely free. Check it out: https://yoursurvivalexpert.ai`}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            Share via Email
+                          </a>
+                          <button
+                            className="share-btn share-btn--copy"
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText('https://yoursurvivalexpert.ai')
+                              const btn = document.querySelector('.share-btn--copy')
+                              if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Link'; }, 2000) }
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            Copy Link
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </form>
                 )}
               </div>

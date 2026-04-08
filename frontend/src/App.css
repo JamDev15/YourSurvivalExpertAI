@@ -1530,6 +1530,59 @@ html, body {
   margin: 0;
 }
 
+/* Share prompt */
+.share-prompt {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(25, 195, 125, 0.06);
+  border: 1px solid rgba(25, 195, 125, 0.2);
+  border-radius: 10px;
+}
+
+.share-prompt-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem 0;
+}
+
+.share-btns {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s;
+  border: none;
+}
+
+.share-btn:hover { opacity: 0.85; }
+
+.share-btn--sms {
+  background: #1a8a5a;
+  color: #fff;
+}
+
+.share-btn--email {
+  background: #2a6dd9;
+  color: #fff;
+}
+
+.share-btn--copy {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
 /* Profile sidebar */
 .profile-card {
   background: var(--bg-card);
