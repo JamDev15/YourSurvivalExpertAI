@@ -196,7 +196,7 @@ WantedBy=multi-user.target
     code, out, err = run(ssh,
         "certbot certonly --standalone -d yoursurvivalexpert.ai "
         "--non-interactive --agree-tos --keep-until-expiring "
-        "--email techteam@patriotbrandspr.com 2>&1",
+        "--email support@yoursurvivalexpert.ai 2>&1",
         "Obtaining SSL certificate"
     )
 
