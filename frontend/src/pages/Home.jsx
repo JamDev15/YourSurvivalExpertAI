@@ -413,21 +413,20 @@ export default function Home() {
     setInput(prompt)
   }
 
-  // Exit intent detection — fires once per session when mouse leaves top of viewport
-  useEffect(() => {
-    const alreadyShown = sessionStorage.getItem('yse_exit_shown')
-    if (alreadyShown) return
-
-    const handleMouseLeave = (e) => {
-      if (e.clientY <= 10 && !exitShownRef.current) {
-        exitShownRef.current = true
-        sessionStorage.setItem('yse_exit_shown', '1')
-        setExitPopupVisible(true)
-      }
-    }
-    document.addEventListener('mouseleave', handleMouseLeave)
-    return () => document.removeEventListener('mouseleave', handleMouseLeave)
-  }, [])
+  // Exit intent detection — DISABLED for now
+  // useEffect(() => {
+  //   const alreadyShown = sessionStorage.getItem('yse_exit_shown')
+  //   if (alreadyShown) return
+  //   const handleMouseLeave = (e) => {
+  //     if (e.clientY <= 10 && !exitShownRef.current) {
+  //       exitShownRef.current = true
+  //       sessionStorage.setItem('yse_exit_shown', '1')
+  //       setExitPopupVisible(true)
+  //     }
+  //   }
+  //   document.addEventListener('mouseleave', handleMouseLeave)
+  //   return () => document.removeEventListener('mouseleave', handleMouseLeave)
+  // }, [])
 
   const submitExitEmail = async (e) => {
     e.preventDefault()
@@ -1078,65 +1077,12 @@ export default function Home() {
 
       </main>
 
-      {/* Exit Intent Popup */}
-      {exitPopupVisible && (
+      {/* Exit Intent Popup — DISABLED for now */}
+      {/* {exitPopupVisible && (
         <div className="exit-popup-overlay" onClick={() => setExitPopupVisible(false)}>
-          <div className="exit-popup" onClick={(e) => e.stopPropagation()}>
-            <button className="exit-popup-close" onClick={() => setExitPopupVisible(false)} aria-label="Close">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-
-            <div className="exit-popup-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-              </svg>
-            </div>
-
-            {exitStatus === 'sent' ? (
-              <div className="exit-popup-success">
-                <h3>You're all set!</h3>
-                <p>Your free survival guide is on its way. Check your inbox in a few minutes.</p>
-                <button className="exit-popup-dismiss" onClick={() => setExitPopupVisible(false)}>Close</button>
-              </div>
-            ) : (
-              <>
-                <h2 className="exit-popup-title">Don't leave without your free survival guide</h2>
-                <p className="exit-popup-desc">
-                  Get a personalized emergency preparedness plan sent straight to your inbox — free, no strings attached.
-                </p>
-                <form className="exit-popup-form" onSubmit={submitExitEmail}>
-                  <input
-                    type="email"
-                    className="exit-popup-input"
-                    placeholder="Enter your email address"
-                    value={exitEmail}
-                    onChange={(e) => {
-                      setExitEmail(e.target.value)
-                      setExitEmailValid(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value))
-                    }}
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="exit-popup-btn"
-                    disabled={!exitEmailValid || exitStatus === 'sending'}
-                  >
-                    {exitStatus === 'sending' ? 'Sending…' : 'Send My Free Guide'}
-                  </button>
-                </form>
-                {exitStatus === 'error' && (
-                  <p className="exit-popup-error">Something went wrong. Please try again.</p>
-                )}
-                <button className="exit-popup-skip" onClick={() => setExitPopupVisible(false)}>
-                  No thanks, I'll skip the free guide
-                </button>
-              </>
-            )}
-          </div>
+          ...
         </div>
-      )}
+      )} */}
     </SiteLayout>
   )
 }
