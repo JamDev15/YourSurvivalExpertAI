@@ -88,7 +88,7 @@ const SECTIONS = [
     items: [
       { label: 'Session data', detail: 'Conversation details are retained only for the duration needed to generate and deliver your guide.' },
       { label: 'Email records', detail: 'Email addresses are stored only as long as required for delivery and are not used afterward.' },
-      { label: 'Deletion requests', detail: 'You may request deletion of your data at any time by contacting us at techteam@patriotbrandspr.com.' },
+      { label: 'Deletion requests', detail: 'You may request deletion of your data at any time by contacting us at support@yoursurvivalexpert.ai.' },
     ],
   },
   {
@@ -214,8 +214,8 @@ export default function Privacy() {
                   <polyline points="22,6 12,13 2,6" />
                 </svg>
                 Questions about this policy? Email us at{' '}
-                <a href="mailto:techteam@patriotbrandspr.com" className="contact-inline-link">
-                  techteam@patriotbrandspr.com
+                <a href="mailto:support@yoursurvivalexpert.ai" className="contact-inline-link">
+                  support@yoursurvivalexpert.ai
                 </a>
               </div>
             </div>

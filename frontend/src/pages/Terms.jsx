@@ -135,7 +135,7 @@ const SECTIONS = [
     ),
     items: [
       { label: 'Governing law', detail: 'These terms are governed by the laws of the United States. Any disputes shall be resolved in the applicable courts of jurisdiction.' },
-      { label: 'Questions', detail: 'For questions about these terms, contact us at techteam@patriotbrandspr.com. We aim to respond within 24 business hours.' },
+      { label: 'Questions', detail: 'For questions about these terms, contact us at support@yoursurvivalexpert.ai. We aim to respond within 24 business hours.' },
       { label: 'Entire agreement', detail: 'These Terms of Service, together with our Privacy Policy, constitute the entire agreement between you and yoursurvivalexpert.ai.' },
     ],
   },
@@ -227,8 +227,8 @@ export default function Terms() {
                   <polyline points="22,6 12,13 2,6" />
                 </svg>
                 Questions about these terms? Email us at{' '}
-                <a href="mailto:techteam@patriotbrandspr.com" className="contact-inline-link">
-                  techteam@patriotbrandspr.com
+                <a href="mailto:support@yoursurvivalexpert.ai" className="contact-inline-link">
+                  support@yoursurvivalexpert.ai
                 </a>
                 {' '}or visit our{' '}
                 <Link to="/contact" className="contact-inline-link">Contact page</Link>.

@@ -14,8 +14,8 @@ const CONTACT_CARDS = [
     label: 'General Inquiries',
     title: 'Questions & Support',
     desc: 'Have a question about your guide, the AI, or how the platform works? We\'re happy to help.',
-    action: 'techteam@patriotbrandspr.com',
-    href: 'mailto:techteam@patriotbrandspr.com',
+    action: 'support@yoursurvivalexpert.ai',
+    href: 'mailto:support@yoursurvivalexpert.ai',
   },
   {
     icon: (
@@ -29,8 +29,8 @@ const CONTACT_CARDS = [
     label: 'Partnerships',
     title: 'Work With Us',
     desc: 'We collaborate with preparedness educators, community leaders, and local organizations.',
-    action: 'techteam@patriotbrandspr.com',
-    href: 'mailto:techteam@patriotbrandspr.com',
+    action: 'support@yoursurvivalexpert.ai',
+    href: 'mailto:support@yoursurvivalexpert.ai',
   },
   {
     icon: (
@@ -41,8 +41,8 @@ const CONTACT_CARDS = [
     label: 'Press & Media',
     title: 'Media Requests',
     desc: 'Covering emergency preparedness or AI? We\'d love to connect for editorial or press inquiries.',
-    action: 'techteam@patriotbrandspr.com',
-    href: 'mailto:techteam@patriotbrandspr.com',
+    action: 'support@yoursurvivalexpert.ai',
+    href: 'mailto:support@yoursurvivalexpert.ai',
   },
 ]
 
@@ -64,7 +64,7 @@ export default function Contact() {
   })
 
   const copyEmail = () => {
-    navigator.clipboard.writeText('techteam@patriotbrandspr.com')
+    navigator.clipboard.writeText('support@yoursurvivalexpert.ai')
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -90,7 +90,7 @@ export default function Contact() {
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <polyline points="22,6 12,13 2,6" />
               </svg>
-              {copied ? 'Copied!' : 'techteam@patriotbrandspr.com'}
+              {copied ? 'Copied!' : 'support@yoursurvivalexpert.ai'}
               {copied ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
