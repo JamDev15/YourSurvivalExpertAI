@@ -12,31 +12,42 @@ export default function Admin() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [statsError, setStatsError] = useState('')
+  const [sessionsError, setSessionsError] = useState('')
   const LIMIT = 20
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
   const fetchStats = useCallback(async () => {
+    setStatsError('')
     try {
       const res = await fetch('/api/admin/stats', { headers: authHeaders })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const msg = res.status === 503 ? 'MongoDB not connected.' : res.status === 401 ? 'Unauthorized.' : 'Failed to load stats.'
+        setStatsError(msg)
+        return
+      }
       setStats(await res.json())
     } catch {
-      setError('Failed to load stats.')
+      setStatsError('Failed to load stats.')
     }
   }, [token])
 
   const fetchSessions = useCallback(async (p = 1) => {
     setLoading(true)
+    setSessionsError('')
     try {
       const res = await fetch(`/api/admin/sessions?page=${p}&limit=${LIMIT}`, { headers: authHeaders })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const msg = res.status === 503 ? 'MongoDB not connected.' : res.status === 401 ? 'Unauthorized.' : 'Failed to load sessions.'
+        setSessionsError(msg)
+        return
+      }
       const data = await res.json()
-      setSessions(data.sessions)
-      setTotal(data.total)
+      setSessions(data.sessions || [])
+      setTotal(data.total || 0)
     } catch {
-      setError('Failed to load sessions.')
+      setSessionsError('Failed to load sessions.')
     } finally {
       setLoading(false)
     }
@@ -71,6 +82,8 @@ export default function Admin() {
     setToken('')
     setStats(null)
     setSessions([])
+    setStatsError('')
+    setSessionsError('')
   }
 
   const goPage = (p) => {
@@ -128,9 +141,8 @@ export default function Admin() {
         <button className="admin-logout-btn" onClick={logout}>Sign out</button>
       </header>
 
-      {error && <p className="admin-error">{error}</p>}
-
       {/* Stats cards */}
+      {statsError && <p className="admin-error">{statsError}</p>}
       {stats && (
         <>
           <div className="admin-stats-grid">
@@ -192,6 +204,7 @@ export default function Admin() {
         </>
       )}
 
+      {sessionsError && <p className="admin-error">{sessionsError}</p>}
       {/* Sessions table */}
       <div className="admin-panel admin-table-panel">
         <div className="admin-panel-header">

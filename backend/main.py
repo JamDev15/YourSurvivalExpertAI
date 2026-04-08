@@ -1414,7 +1414,7 @@ def admin_stats(authorization: str = Header(default="")):
     if not _verify_admin(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized.")
     if _sessions_col is None:
-        return {"error": "MongoDB not connected."}
+        raise HTTPException(status_code=503, detail="MongoDB not connected.")
 
     total_sessions = _sessions_col.count_documents({})
     total_emails = _sessions_col.count_documents({"email": {"$exists": True, "$ne": ""}})
@@ -1478,7 +1478,7 @@ def admin_sessions(
     if not _verify_admin(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized.")
     if _sessions_col is None:
-        return {"error": "MongoDB not connected."}
+        raise HTTPException(status_code=503, detail="MongoDB not connected.")
 
     skip = (page - 1) * limit
     total = _sessions_col.count_documents({})
