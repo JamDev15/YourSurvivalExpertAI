@@ -1591,6 +1591,9 @@ def admin_sessions(
                 doc[k] = doc[k].isoformat()
         if "conversation" in doc:
             doc["message_count"] = len(doc["conversation"])
-            del doc["conversation"]
+            # Serialize datetime timestamps inside each message
+            for msg in doc["conversation"]:
+                if "ts" in msg and msg["ts"]:
+                    msg["ts"] = msg["ts"].isoformat()
 
     return {"total": total, "page": page, "limit": limit, "sessions": docs}
