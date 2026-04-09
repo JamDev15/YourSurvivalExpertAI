@@ -14,6 +14,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false)
   const [statsError, setStatsError] = useState('')
   const [sessionsError, setSessionsError] = useState('')
+  const [activeSession, setActiveSession] = useState(null)
   const LIMIT = 20
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -59,6 +60,13 @@ export default function Admin() {
     fetchSessions(page)
   }, [token])
 
+  // Close drawer on Escape key
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setActiveSession(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   const login = async (e) => {
     e.preventDefault()
     setLoginError('')
@@ -84,6 +92,7 @@ export default function Admin() {
     setSessions([])
     setStatsError('')
     setSessionsError('')
+    setActiveSession(null)
   }
 
   const goPage = (p) => {
@@ -182,10 +191,7 @@ export default function Admin() {
                 <div key={r.region} className="admin-bar-row">
                   <span className="admin-bar-label">{r.region}</span>
                   <div className="admin-bar-track">
-                    <div
-                      className="admin-bar-fill"
-                      style={{ width: `${Math.round((r.count / (stats.top_regions[0]?.count || 1)) * 100)}%` }}
-                    />
+                    <div className="admin-bar-fill" style={{ width: `${Math.round((r.count / (stats.top_regions[0]?.count || 1)) * 100)}%` }} />
                   </div>
                   <span className="admin-bar-count">{r.count}</span>
                 </div>
@@ -197,10 +203,7 @@ export default function Admin() {
                 <div key={c.concern} className="admin-bar-row">
                   <span className="admin-bar-label">{c.concern}</span>
                   <div className="admin-bar-track">
-                    <div
-                      className="admin-bar-fill"
-                      style={{ width: `${Math.round((c.count / (stats.top_concerns[0]?.count || 1)) * 100)}%` }}
-                    />
+                    <div className="admin-bar-fill" style={{ width: `${Math.round((c.count / (stats.top_concerns[0]?.count || 1)) * 100)}%` }} />
                   </div>
                   <span className="admin-bar-count">{c.count}</span>
                 </div>
@@ -211,6 +214,7 @@ export default function Admin() {
       )}
 
       {sessionsError && <p className="admin-error">{sessionsError}</p>}
+
       {/* Sessions table */}
       <div className="admin-panel admin-table-panel">
         <div className="admin-panel-header">
@@ -230,15 +234,16 @@ export default function Admin() {
                 <th>Source</th>
                 <th>Messages</th>
                 <th>IP</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="9" className="admin-table-empty">Loading…</td></tr>
+                <tr><td colSpan="10" className="admin-table-empty">Loading…</td></tr>
               ) : sessions.length === 0 ? (
-                <tr><td colSpan="9" className="admin-table-empty">No sessions yet.</td></tr>
+                <tr><td colSpan="10" className="admin-table-empty">No sessions yet.</td></tr>
               ) : sessions.map((s) => (
-                <tr key={s._id}>
+                <tr key={s._id} className={activeSession?._id === s._id ? 'admin-row-active' : ''}>
                   <td className="admin-td-date">{formatDate(s.created_at)}</td>
                   <td className="admin-td-email">{s.email || <span className="admin-empty">—</span>}</td>
                   <td>{s.profile?.region || <span className="admin-empty">—</span>}</td>
@@ -252,6 +257,16 @@ export default function Admin() {
                   <td>{s.lead_source || <span className="admin-empty">chat</span>}</td>
                   <td>{s.message_count ?? '—'}</td>
                   <td className="admin-td-ip">{s.ip || '—'}</td>
+                  <td>
+                    {s.message_count > 0 && (
+                      <button
+                        className="admin-view-btn"
+                        onClick={() => setActiveSession(activeSession?._id === s._id ? null : s)}
+                      >
+                        {activeSession?._id === s._id ? 'Close' : 'View'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -261,20 +276,62 @@ export default function Admin() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="admin-pagination">
-            <button
-              className="admin-page-btn"
-              disabled={page === 1}
-              onClick={() => goPage(page - 1)}
-            >← Prev</button>
+            <button className="admin-page-btn" disabled={page === 1} onClick={() => goPage(page - 1)}>← Prev</button>
             <span className="admin-page-info">Page {page} of {totalPages}</span>
-            <button
-              className="admin-page-btn"
-              disabled={page === totalPages}
-              onClick={() => goPage(page + 1)}
-            >Next →</button>
+            <button className="admin-page-btn" disabled={page === totalPages} onClick={() => goPage(page + 1)}>Next →</button>
           </div>
         )}
       </div>
+
+      {/* Conversation Drawer */}
+      {activeSession && (
+        <div className="admin-drawer-overlay" onClick={() => setActiveSession(null)}>
+          <div className="admin-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-drawer-header">
+              <div>
+                <h3 className="admin-drawer-title">Conversation</h3>
+                <p className="admin-drawer-meta">
+                  {activeSession.email || 'Anonymous'} · {activeSession.profile?.region || '—'} · {formatDate(activeSession.created_at)}
+                </p>
+              </div>
+              <button className="admin-drawer-close" onClick={() => setActiveSession(null)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="admin-drawer-profile">
+              {[
+                ['Preparing For', activeSession.profile?.preparingFor],
+                ['Concern', activeSession.profile?.concern],
+                ['Region', activeSession.profile?.region],
+              ].map(([label, val]) => val ? (
+                <span key={label} className="admin-drawer-tag">
+                  <strong>{label}:</strong> {val}
+                </span>
+              ) : null)}
+              {activeSession.guide_sent_at && (
+                <span className="admin-badge sent" style={{fontSize:'0.72rem'}}>Guide Sent</span>
+              )}
+            </div>
+
+            <div className="admin-drawer-messages">
+              {activeSession.conversation && activeSession.conversation.length > 0 ? (
+                activeSession.conversation.map((msg, i) => (
+                  <div key={i} className={`admin-msg admin-msg--${msg.role}`}>
+                    <span className="admin-msg-role">{msg.role === 'user' ? 'User' : 'AI'}</span>
+                    <p className="admin-msg-content">{msg.content}</p>
+                    {msg.ts && <span className="admin-msg-time">{formatDate(msg.ts)}</span>}
+                  </div>
+                ))
+              ) : (
+                <p className="admin-table-empty">No messages recorded for this session.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
