@@ -73,6 +73,72 @@ MAROPOST_ACCOUNT_ID = os.getenv("MAROPOST_ACCOUNT_ID", "1044")
 MAROPOST_LIST_ID = os.getenv("MAROPOST_LIST_ID", "306")
 MAROPOST_TAG_ID = os.getenv("MAROPOST_TAG_ID", "3078")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+
+# -------------------------------------------------
+# MongoDB Setup
+# -------------------------------------------------
+try:
+    from pymongo import MongoClient, ASCENDING
+    from pymongo.errors import PyMongoError
+    _pymongo_available = True
+except ImportError:
+    _pymongo_available = False
+
+_mongo_client = None
+_mongo_db = None
+_sessions_col = None
+
+def _init_mongo():
+    global _mongo_client, _mongo_db, _sessions_col
+    if not _pymongo_available or not MONGODB_URI:
+        logging.warning("MongoDB not configured — session logging disabled.")
+        return
+    try:
+        _mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        _mongo_client.admin.command("ping")
+        _mongo_db = _mongo_client["yoursurvivalexpert"]
+        _sessions_col = _mongo_db["sessions"]
+        _sessions_col.create_index([("session_id", ASCENDING)], unique=True)
+        _sessions_col.create_index([("email", ASCENDING)])
+        logging.info("MongoDB connected successfully.")
+    except Exception as e:
+        logging.warning(f"MongoDB connection failed: {e}")
+        _sessions_col = None
+
+_init_mongo()
+
+
+def db_upsert_session(session_id: str, update_fields: dict) -> None:
+    if _sessions_col is None or not session_id:
+        return
+    try:
+        now = datetime.now(timezone.utc)
+        _sessions_col.update_one(
+            {"session_id": session_id},
+            {"$set": {**update_fields, "updated_at": now},
+             "$setOnInsert": {"session_id": session_id, "created_at": now}},
+            upsert=True,
+        )
+    except Exception as e:
+        logging.warning(f"MongoDB upsert error: {e}")
+
+
+def db_append_message(session_id: str, role: str, content: str) -> None:
+    if _sessions_col is None or not session_id:
+        return
+    try:
+        now = datetime.now(timezone.utc)
+        _sessions_col.update_one(
+            {"session_id": session_id},
+            {"$push": {"conversation": {"role": role, "content": content, "ts": now}},
+             "$set": {"updated_at": now},
+             "$setOnInsert": {"session_id": session_id, "created_at": now}},
+            upsert=True,
+        )
+    except Exception as e:
+        logging.warning(f"MongoDB append error: {e}")
+
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
@@ -94,7 +160,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # -------------------------------------------------
@@ -280,6 +346,7 @@ class ProfileModel(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message] = []
     profile: ProfileModel = ProfileModel()
+    session_id: Optional[str] = Field(default="", max_length=64)
 
     @field_validator("messages", mode="before")
     @classmethod
@@ -291,6 +358,7 @@ class ChatRequest(BaseModel):
 class GuideRequest(BaseModel):
     email: EmailStr
     profile: ProfileModel = ProfileModel()
+    session_id: Optional[str] = Field(default="", max_length=64)
 
 # -------------------------------------------------
 # Helpers
@@ -1159,6 +1227,8 @@ def health():
 @app.post("/chat")
 def chat(req: ChatRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
+    session_id = (req.session_id or "").strip()
+    user_agent = request.headers.get("user-agent", "")
     if not _check_rate_limit(f"chat:{client_ip}", RATE_LIMIT_CHAT):
         raise HTTPException(status_code=429, detail="Too many requests. Please wait a moment.")
 
@@ -1256,6 +1326,15 @@ def chat(req: ChatRequest, request: Request):
                 "readyForEmail": is_valid_profile(profile),
             }
 
+    # Save latest user message + profile to MongoDB
+    if session_id and latest_user:
+        db_append_message(session_id, "user", latest_user.content)
+        db_upsert_session(session_id, {
+            "profile": profile,
+            "ip": client_ip,
+            "user_agent": user_agent,
+        })
+
     # Switch prompt logic: if all profile fields are filled, use advice/guide mode
     if not missing:
         guide_messages = [
@@ -1317,6 +1396,8 @@ def chat(req: ChatRequest, request: Request):
 @app.post("/guide")
 def guide(req: GuideRequest, request: Request):
     client_ip = request.client.host if request.client else "unknown"
+    session_id = (req.session_id or "").strip()
+    user_agent = request.headers.get("user-agent", "")
 
     if not _check_rate_limit(f"guide:{client_ip}", RATE_LIMIT_GUIDE):
         raise HTTPException(status_code=429, detail="Too many guide requests. Please wait a few minutes.")
@@ -1341,6 +1422,15 @@ def guide(req: GuideRequest, request: Request):
             )
         # Sync lead to Maropost CRM (non-blocking, fails silently)
         sync_to_maropost(str(req.email), profile)
+        # Save guide delivery to MongoDB
+        mongo_key = session_id or f"email:{str(req.email).lower()}"
+        db_upsert_session(mongo_key, {
+            "email": str(req.email),
+            "profile": profile,
+            "guide_sent_at": datetime.now(timezone.utc),
+            "ip": client_ip,
+            "user_agent": user_agent,
+        })
         return {"ok": True}
     except HTTPException:
         raise

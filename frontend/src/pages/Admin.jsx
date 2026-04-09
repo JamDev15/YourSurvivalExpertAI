@@ -138,7 +138,13 @@ export default function Admin() {
           <span className="admin-header-title">Admin Dashboard</span>
           <span className="admin-header-sub">yoursurvivalexpert.ai</span>
         </div>
-        <button className="admin-logout-btn" onClick={logout}>Sign out</button>
+        <div style={{display:'flex',gap:'0.5rem'}}>
+          <button className="admin-refresh-btn" onClick={() => { fetchStats(); fetchSessions(page) }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+          </button>
+          <button className="admin-logout-btn" onClick={logout}>Sign out</button>
+        </div>
       </header>
 
       {/* Stats cards */}
