@@ -1265,68 +1265,7 @@ def chat(req: ChatRequest, request: Request):
         keywords = ["what should i store", "what should i prepare", "supply list", "emergency supplies", "give me list", "give me supplies", "checklist", "items to store", "items to prepare", "just give me now", "just list", "just checklist", "just items", "just supplies"]
         return any(k in text.lower() for k in keywords)
 
-    if latest_text and needs_supply_list(latest_text):
-        if missing:
-            # Profile incomplete — don't generate supply list yet, ask for the next missing field
-            next_question = dict(QUESTION_ORDER)[missing[0]]
-            field_labels = {"preparingFor": "who you're preparing for", "concern": "your primary concern", "region": "your region"}
-            missing_labels = [field_labels.get(f, f) for f in missing]
-            return {
-                "reply": (
-                    f"I want to give you the most accurate supply list possible — "
-                    f"but I still need a couple of details first. "
-                    f"Could you tell me {' and '.join(missing_labels)}?\n\n"
-                    f"{next_question}"
-                ),
-                "profile": profile,
-                "readyForEmail": False,
-            }
-        print("[OpenAI] Calling OpenAI for supply list (reference-based)...")
-        supply_list = build_supply_list(profile)
-        items = extract_numbered_items(supply_list)
-        return {
-            "reply": "\n".join(items),
-            "profile": profile,
-            "readyForEmail": is_valid_profile(profile),
-        }
-
-    if latest_text:
-        email_candidate = detect_email_candidate(latest_text)
-        if email_candidate and not validate_email(email_candidate):
-            next_question = dict(QUESTION_ORDER)[missing[0]] if missing else None
-            extra = f" {next_question}" if next_question else ""
-            return {
-                "reply": (
-                    f"'{email_candidate}' is not a valid email format. "
-                    "Please provide a correct email like name@example.com."
-                    f"{extra}"
-                ),
-                "profile": profile,
-                "readyForEmail": not missing and is_valid_profile(profile),
-            }
-
-    if latest_text:
-        detected_email = detect_email_in_message(latest_text)
-        if detected_email and missing:
-            return {
-                "reply": (
-                    "Thanks. I will collect your email after we finish your profile. "
-                    f"{dict(QUESTION_ORDER)[missing[0]]}"
-                ),
-                "profile": profile,
-                "readyForEmail": False,
-            }
-        if detected_email and not missing:
-            return {
-                "reply": (
-                    "That email format looks valid. Please enter it in the email field below "
-                    "and click 'Send my guide'."
-                ),
-                "profile": profile,
-                "readyForEmail": is_valid_profile(profile),
-            }
-
-    # Save latest user message + profile to MongoDB
+    # Save user message + profile to MongoDB before any branching
     if session_id and latest_user:
         db_append_message(session_id, "user", latest_user.content)
         db_upsert_session(session_id, {
@@ -1335,13 +1274,58 @@ def chat(req: ChatRequest, request: Request):
             "user_agent": user_agent,
         })
 
+    def _reply_and_save(reply_text: str, ready: bool) -> dict:
+        """Save AI reply to MongoDB then return the response dict."""
+        if session_id:
+            db_append_message(session_id, "assistant", reply_text)
+        return {"reply": reply_text, "profile": profile, "readyForEmail": ready}
+
+    if latest_text and needs_supply_list(latest_text):
+        if missing:
+            next_question = dict(QUESTION_ORDER)[missing[0]]
+            field_labels = {"preparingFor": "who you're preparing for", "concern": "your primary concern", "region": "your region"}
+            missing_labels = [field_labels.get(f, f) for f in missing]
+            return _reply_and_save(
+                f"I want to give you the most accurate supply list possible — "
+                f"but I still need a couple of details first. "
+                f"Could you tell me {' and '.join(missing_labels)}?\n\n{next_question}",
+                False,
+            )
+        print("[OpenAI] Calling OpenAI for supply list (reference-based)...")
+        supply_list = build_supply_list(profile)
+        items = extract_numbered_items(supply_list)
+        return _reply_and_save("\n".join(items), is_valid_profile(profile))
+
+    if latest_text:
+        email_candidate = detect_email_candidate(latest_text)
+        if email_candidate and not validate_email(email_candidate):
+            next_question = dict(QUESTION_ORDER)[missing[0]] if missing else None
+            extra = f" {next_question}" if next_question else ""
+            return _reply_and_save(
+                f"'{email_candidate}' is not a valid email format. "
+                f"Please provide a correct email like name@example.com.{extra}",
+                not missing and is_valid_profile(profile),
+            )
+
+    if latest_text:
+        detected_email = detect_email_in_message(latest_text)
+        if detected_email and missing:
+            return _reply_and_save(
+                "Thanks. I will collect your email after we finish your profile. "
+                f"{dict(QUESTION_ORDER)[missing[0]]}",
+                False,
+            )
+        if detected_email and not missing:
+            return _reply_and_save(
+                "That email format looks valid. Please enter it in the email field below "
+                "and click 'Send my guide'.",
+                is_valid_profile(profile),
+            )
+
     # Switch prompt logic: if all profile fields are filled, use advice/guide mode
     if not missing:
         guide_messages = [
-            {
-                "role": "system",
-                "content": GUIDE_PROMPT,
-            },
+            {"role": "system", "content": GUIDE_PROMPT},
             {
                 "role": "user",
                 "content": (
@@ -1363,11 +1347,7 @@ def chat(req: ChatRequest, request: Request):
             if is_valid_profile(profile) else
             "I'm having a brief connection issue. Could you repeat your last message?"
         )
-        return {
-            "reply": reply,
-            "profile": profile,
-            "readyForEmail": is_valid_profile(profile),
-        }
+        return _reply_and_save(reply, is_valid_profile(profile))
     else:
         messages = [
             {
@@ -1385,11 +1365,7 @@ def chat(req: ChatRequest, request: Request):
             reply = build_chat_reply(profile, missing)
         else:
             reply = ai_reply or build_chat_reply(profile, missing)
-        return {
-            "reply": reply,
-            "profile": profile,
-            "readyForEmail": not missing and is_valid_profile(profile),
-        }
+        return _reply_and_save(reply, not missing and is_valid_profile(profile))
 
 
 @app.post("/api/guide")
