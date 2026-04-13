@@ -1557,6 +1557,11 @@ html, body {
 .floating-chat-label {
   white-space: nowrap;
 }
+.floating-chat-btn--hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+}
 @media (max-width: 480px) {
   .floating-chat-btn {
     padding: 12px;

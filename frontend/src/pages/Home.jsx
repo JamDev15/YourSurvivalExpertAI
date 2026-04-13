@@ -1126,9 +1126,9 @@ export default function Home() {
         </div>
       )} */}
 
-      {/* Floating Chat Button */}
+      {/* Floating Chat Button — hidden once chat is active */}
       <button
-        className="floating-chat-btn"
+        className={`floating-chat-btn${isChatActive ? ' floating-chat-btn--hidden' : ''}`}
         type="button"
         aria-label="Open chat"
         onClick={() => {
