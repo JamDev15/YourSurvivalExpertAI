@@ -1125,6 +1125,24 @@ export default function Home() {
           ...
         </div>
       )} */}
+
+      {/* Floating Chat Button */}
+      <button
+        className="floating-chat-btn"
+        type="button"
+        aria-label="Open chat"
+        onClick={() => {
+          activateChat()
+          setTimeout(() => {
+            chatSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }, 50)
+        }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span className="floating-chat-label">Chat with Expert</span>
+      </button>
     </SiteLayout>
   )
 }
